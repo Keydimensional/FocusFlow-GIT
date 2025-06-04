@@ -59,7 +59,6 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 export const loadState = (): AppState => {
   const state = loadFromStorage<AppState>(STORAGE_KEY, defaultState);
   
-  // Ensure all properties have valid values with type checking
   return {
     ...defaultState,
     ...state,
