@@ -50,12 +50,12 @@ export const DailyFocus: React.FC = () => {
     if (!text.trim()) return;
     
     addFocus(text.trim());
+    setText('');
     setShowAnimation(true);
     setTimeout(() => {
       setShowAnimation(false);
       setShowGoalPrompt(true);
     }, 1500);
-    setText('');
   };
 
   const handleAddGoal = () => {
