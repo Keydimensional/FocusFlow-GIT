@@ -25,12 +25,33 @@ const defaultState: AppState = {
   ],
 };
 
+const isStorageAvailable = () => {
+  try {
+    const test = '__storage_test__';
+    localStorage.setItem(test, test);
+    localStorage.removeItem(test);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
 function loadFromStorage<T>(key: string, fallback: T): T {
+  if (!isStorageAvailable()) {
+    console.warn('localStorage is not available');
+    return fallback;
+  }
+
   try {
     const item = localStorage.getItem(key);
     if (!item) return fallback;
-    return JSON.parse(item);
-  } catch {
+
+    const parsed = JSON.parse(item);
+    if (!parsed || typeof parsed !== 'object') return fallback;
+
+    return parsed;
+  } catch (error) {
+    console.error('Failed to load state from localStorage:', error);
     return fallback;
   }
 }
@@ -38,7 +59,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 export const loadState = (): AppState => {
   const state = loadFromStorage<AppState>(STORAGE_KEY, defaultState);
   
-  // Ensure all properties have valid values
+  // Ensure all properties have valid values with type checking
   return {
     ...defaultState,
     ...state,
@@ -48,16 +69,22 @@ export const loadState = (): AppState => {
     habits: Array.isArray(state.habits) ? state.habits : defaultState.habits,
     brainDump: Array.isArray(state.brainDump) ? state.brainDump : defaultState.brainDump,
     widgets: Array.isArray(state.widgets) ? state.widgets : defaultState.widgets,
-    todaysFocus: state.todaysFocus || defaultState.todaysFocus,
-    lastCheckIn: state.lastCheckIn || defaultState.lastCheckIn,
-    streak: typeof state.streak === 'number' ? state.streak : defaultState.streak,
+    todaysFocus: state.todaysFocus && typeof state.todaysFocus === 'object' ? state.todaysFocus : defaultState.todaysFocus,
+    lastCheckIn: typeof state.lastCheckIn === 'string' ? state.lastCheckIn : defaultState.lastCheckIn,
+    streak: typeof state.streak === 'number' && !isNaN(state.streak) ? state.streak : defaultState.streak,
   };
 };
 
 export const saveState = (state: AppState): void => {
+  if (!isStorageAvailable()) {
+    console.warn('localStorage is not available');
+    return;
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (err) {
-    console.error('Failed to save state:', err);
+    const serializedState = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY, serializedState);
+  } catch (error) {
+    console.error('Failed to save state to localStorage:', error);
   }
 };
