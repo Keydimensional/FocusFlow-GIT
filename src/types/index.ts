@@ -11,6 +11,7 @@ export interface Reminder {
   title: string;
   datetime: string;
   completed: boolean;
+  playSound?: boolean;
 }
 
 export interface Goal {

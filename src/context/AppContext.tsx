@@ -11,6 +11,7 @@ interface AppContextType extends AppState {
   toggleGoal: (id: string) => void;
   deleteGoal: (id: string) => void;
   addReminder: (reminder: Omit<Reminder, 'id' | 'completed'>) => void;
+  updateReminder: (id: string, updates: Partial<Reminder>) => void;
   toggleReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
   addHabit: (habit: Pick<Habit, 'title' | 'frequency' | 'color' | 'gameType'>) => void;
@@ -143,6 +144,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(prev => ({
       ...prev,
       reminders: [...prev.reminders, newReminder]
+    }));
+  };
+
+  const updateReminder = (id: string, updates: Partial<Reminder>) => {
+    setState(prev => ({
+      ...prev,
+      reminders: prev.reminders.map(reminder =>
+        reminder.id === id ? { ...reminder, ...updates } : reminder
+      )
     }));
   };
 
@@ -279,6 +289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleGoal,
       deleteGoal,
       addReminder,
+      updateReminder,
       toggleReminder,
       deleteReminder,
       addHabit,

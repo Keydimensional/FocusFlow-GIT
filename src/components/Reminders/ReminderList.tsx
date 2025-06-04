@@ -23,6 +23,12 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
               body: 'Time to complete your task!',
               icon: '/vite.svg'
             });
+
+            if (reminder.playSound) {
+              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+              audio.volume = 0.5;
+              audio.play().catch(console.error);
+            }
           }
           toggleReminder(reminder.id);
         }
