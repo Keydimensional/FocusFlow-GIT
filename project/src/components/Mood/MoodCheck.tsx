@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Mood } from '../../types';
-import { Frown, Meh, Smile, Frown as FrownOpen, X } from 'lucide-react';
+import { Frown, Meh, Smile, HeartHandshake, X, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const moodConfig: Record<Mood, { icon: React.ReactNode; color: string; label: string }> = {
-  great: { icon: <Smile className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-green-100 hover:bg-green-200 text-green-700', label: 'Great' },
+  great: { icon: <HeartHandshake className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-green-100 hover:bg-green-200 text-green-700', label: 'Great' },
   good: { icon: <Smile className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-blue-100 hover:bg-blue-200 text-blue-700', label: 'Good' },
   okay: { icon: <Meh className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700', label: 'Okay' },
   bad: { icon: <Frown className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-orange-100 hover:bg-orange-200 text-orange-700', label: 'Bad' },
-  awful: { icon: <FrownOpen className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-red-100 hover:bg-red-200 text-red-700', label: 'Awful' },
+  awful: { icon: <Frown className="w-6 sm:w-8 h-6 sm:h-8" />, color: 'bg-red-100 hover:bg-red-200 text-red-700', label: 'Awful' },
 };
 
 export const MoodCheck: React.FC = () => {
@@ -91,7 +91,8 @@ export const MoodCheck: React.FC = () => {
     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
       {!selectedMood ? (
         <>
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
+            <Heart className="w-5 h-5 text-purple-500" />
             How are you feeling today?
           </h2>
           <div className="grid grid-cols-5 gap-2 sm:gap-4">

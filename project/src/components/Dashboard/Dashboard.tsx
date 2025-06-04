@@ -11,6 +11,19 @@ import { FocusTimer } from '../Timer/FocusTimer';
 import { MoodBoard } from '../MoodBoard/MoodBoard';
 import { useApp } from '../../context/AppContext';
 
+const widgetEmojis = {
+  dailyFocus: '🎯',
+  focusTimer: '⏱️',
+  streakCounter: '🔥',
+  moodCheck: '😊',
+  moodBoard: '💭',
+  brainDump: '🧠',
+  moodHistory: '📊',
+  goalList: '✨',
+  reminderList: '⏰',
+  habitTracker: '📝',
+};
+
 export const Dashboard: React.FC = () => {
   const { goals, reminders, widgets } = useApp();
   const activeGoals = goals.filter(goal => !goal.completed);

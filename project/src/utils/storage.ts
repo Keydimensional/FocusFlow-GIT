@@ -25,29 +25,33 @@ const defaultState: AppState = {
   ],
 };
 
-export const loadState = (): AppState => {
+function loadFromStorage<T>(key: string, fallback: T): T {
   try {
-    const serializedState = localStorage.getItem(STORAGE_KEY);
-    if (!serializedState) return defaultState;
-    
-    const parsedState = JSON.parse(serializedState);
-    
-    return {
-      ...defaultState,
-      ...parsedState,
-      moods: Array.isArray(parsedState.moods) ? parsedState.moods : [],
-      goals: Array.isArray(parsedState.goals) ? parsedState.goals : [],
-      reminders: Array.isArray(parsedState.reminders) ? parsedState.reminders : [],
-      habits: Array.isArray(parsedState.habits) ? parsedState.habits : [],
-      brainDump: Array.isArray(parsedState.brainDump) ? parsedState.brainDump : [],
-      widgets: Array.isArray(parsedState.widgets) ? parsedState.widgets : defaultState.widgets,
-      todaysFocus: parsedState.todaysFocus || null,
-      lastCheckIn: parsedState.lastCheckIn || null,
-      streak: typeof parsedState.streak === 'number' ? parsedState.streak : 0,
-    };
+    const item = localStorage.getItem(key);
+    if (!item) return fallback;
+    return JSON.parse(item);
   } catch {
-    return defaultState;
+    return fallback;
   }
+}
+
+export const loadState = (): AppState => {
+  const state = loadFromStorage<AppState>(STORAGE_KEY, defaultState);
+  
+  // Ensure all properties have valid values
+  return {
+    ...defaultState,
+    ...state,
+    moods: Array.isArray(state.moods) ? state.moods : defaultState.moods,
+    goals: Array.isArray(state.goals) ? state.goals : defaultState.goals,
+    reminders: Array.isArray(state.reminders) ? state.reminders : defaultState.reminders,
+    habits: Array.isArray(state.habits) ? state.habits : defaultState.habits,
+    brainDump: Array.isArray(state.brainDump) ? state.brainDump : defaultState.brainDump,
+    widgets: Array.isArray(state.widgets) ? state.widgets : defaultState.widgets,
+    todaysFocus: state.todaysFocus || defaultState.todaysFocus,
+    lastCheckIn: state.lastCheckIn || defaultState.lastCheckIn,
+    streak: typeof state.streak === 'number' ? state.streak : defaultState.streak,
+  };
 };
 
 export const saveState = (state: AppState): void => {

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, Goal, Mood, Reminder, Habit, Widget } from '../types';
 import { loadState, saveState } from '../utils/storage';
-import { formatDate, isConsecutiveDay, isToday } from '../utils/dateUtils';
+import { formatDate, isConsecutiveDay, isToday, calculateStreak } from '../utils/dateUtils';
 
 interface AppContextType extends AppState {
   addMood: (mood: Mood, reflection?: string) => void;
@@ -13,7 +13,7 @@ interface AppContextType extends AppState {
   addReminder: (reminder: Omit<Reminder, 'id' | 'completed'>) => void;
   toggleReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
-  addHabit: (habit: Pick<Habit, 'title' | 'frequency' | 'color'>) => void;
+  addHabit: (habit: Pick<Habit, 'title' | 'frequency' | 'color' | 'gameType'>) => void;
   toggleHabit: (id: string) => void;
   deleteHabit: (id: string) => void;
   addFocus: (text: string) => void;
@@ -162,12 +162,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const addHabit = (habit: Pick<Habit, 'title' | 'frequency' | 'color'>) => {
+  const addHabit = (habit: Pick<Habit, 'title' | 'frequency' | 'color' | 'gameType'>) => {
     const newHabit: Habit = {
       ...habit,
       id: crypto.randomUUID(),
       completedDates: [],
-      streak: 0
+      streak: 0,
+      createdAt: new Date().toISOString()
     };
     setState(prev => ({
       ...prev,
@@ -187,14 +188,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? habit.completedDates.filter(date => date !== today)
           : [...habit.completedDates, today];
 
-        const streak = isCompleted
-          ? habit.streak - (isConsecutiveDay(habit.completedDates, today) ? 1 : 0)
-          : habit.streak + (isConsecutiveDay(habit.completedDates, today) ? 1 : 0);
-
         return {
           ...habit,
           completedDates,
-          streak: Math.max(0, streak)
+          streak: calculateStreak(completedDates)
         };
       })
     }));
@@ -210,9 +207,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addFocus = (text: string) => {
     setState(prev => ({
       ...prev,
-      dailyFocus: {
+      todaysFocus: {
         text,
-        date: formatDate(new Date())
+        timestamp: Date.now()
       }
     }));
   };
@@ -220,10 +217,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateFocus = (text: string) => {
     setState(prev => ({
       ...prev,
-      dailyFocus: {
-        ...prev.dailyFocus,
+      todaysFocus: prev.todaysFocus ? {
+        ...prev.todaysFocus,
         text
-      }
+      } : null
     }));
   };
 

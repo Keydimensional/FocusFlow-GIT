@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Trophy, Check, X, Trash2, Play, Minus } from 'lucide-react';
+import { Plus, Trophy, Check, X, Trash2, Play, Minus, ListChecks } from 'lucide-react';
 import { Habit } from '../../types';
 import { MiniGame } from './MiniGame';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameStats } from './GameStats';
-
-// Rest of the imports...
+import { HabitForm } from './HabitForm';
+import { HabitItem } from './HabitItem';
 
 export const HabitTracker: React.FC = () => {
   const { habits, deleteHabit } = useApp();
@@ -16,7 +16,10 @@ export const HabitTracker: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">Habits</h2>
+        <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <ListChecks className="w-5 h-5 text-purple-500" />
+          Habits
+        </h2>
         <div className="flex items-center gap-2">
           {showForm ? (
             <button

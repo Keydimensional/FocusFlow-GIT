@@ -21,7 +21,7 @@ const MemoryGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const [matchedPairs, setMatchedPairs] = useState<number>(0);
 
   useEffect(() => {
-    const emojis = ['🌟', '🎮', '🎯', '⭐', '🎨', '🎪'];
+    const emojis = ['🧠', '🎮', '🎯', '⭐', '🎨', '🎪'];
     const initialCards = [...emojis, ...emojis]
       .sort(() => Math.random() - 0.5)
       .map((emoji, index) => ({

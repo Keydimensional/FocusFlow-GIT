@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Reminder } from '../../types';
 import { ReminderItem } from './ReminderItem';
 import { ReminderForm } from './ReminderForm';
-import { Bell } from 'lucide-react';
+import { Bell, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface ReminderListProps {
@@ -38,12 +38,15 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">Reminders</h2>
+        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+          <Bell className="w-5 h-5 text-purple-500" />
+          Reminders
+        </h2>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg transition-colors duration-200"
         >
-          <Bell className="w-4 h-4" />
+          <Plus className="w-4 h-4" />
           Add Reminder
         </button>
       </div>
