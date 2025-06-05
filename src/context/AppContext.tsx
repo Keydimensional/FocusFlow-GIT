@@ -59,23 +59,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        const userData = await loadUserData(user.uid);
+    const initializeData = async () => {
+      if (auth.currentUser) {
+        const userData = await loadUserData(auth.currentUser.uid);
         if (userData) {
           setState(userData);
         }
         setIsInitialized(true);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    initializeData();
   }, []);
 
   useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
     if (isInitialized && auth.currentUser) {
-      saveUserData(auth.currentUser.uid, state);
+      // Debounce saves to avoid too many writes
+      timeout = setTimeout(() => {
+        saveUserData(auth.currentUser.uid, state);
+      }, 1000);
     }
+
+    return () => clearTimeout(timeout);
   }, [state, isInitialized]);
 
   useEffect(() => {
