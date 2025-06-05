@@ -57,15 +57,22 @@ const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>(defaultState);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeData = async () => {
-      if (auth.currentUser) {
-        const userData = await loadUserData(auth.currentUser.uid);
-        if (userData) {
-          setState(userData);
+      try {
+        if (auth.currentUser) {
+          const userData = await loadUserData(auth.currentUser.uid);
+          if (userData) {
+            setState(userData);
+          }
+          setIsInitialized(true);
+          setError(null);
         }
-        setIsInitialized(true);
+      } catch (err) {
+        console.error('Error initializing data:', err);
+        setError('Failed to load your data. Please try refreshing the page.');
       }
     };
 
@@ -76,9 +83,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let timeout: NodeJS.Timeout;
     
     if (isInitialized && auth.currentUser) {
-      // Debounce saves to avoid too many writes
-      timeout = setTimeout(() => {
-        saveUserData(auth.currentUser.uid, state);
+      timeout = setTimeout(async () => {
+        try {
+          await saveUserData(auth.currentUser.uid, state);
+          setError(null);
+        } catch (err) {
+          console.error('Error saving data:', err);
+          setError('Failed to save your changes. Please check your connection.');
+        }
       }, 1000);
     }
 
@@ -308,6 +320,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       widgets: defaultWidgets,
     }));
   };
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <AppContext.Provider value={{
