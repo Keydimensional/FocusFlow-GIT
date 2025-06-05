@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Timer, Play, Pause, RotateCcw, Settings } from 'lucide-react';
+import { Timer, Play, Pause, RotateCcw, Settings, ArrowLeft } from 'lucide-react';
+import { FocusLock } from './FocusLock';
 
 export const FocusTimer: React.FC = () => {
-  const [workTime, setWorkTime] = useState(25 * 60); // Default 25 minutes
-  const [breakTime, setBreakTime] = useState(5 * 60); // Default 5 minutes
+  const [workTime, setWorkTime] = useState(25 * 60);
+  const [breakTime, setBreakTime] = useState(5 * 60);
   const [timeLeft, setTimeLeft] = useState(workTime);
   const [isRunning, setIsRunning] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isFocusLocked, setIsFocusLocked] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -25,10 +27,11 @@ export const FocusTimer: React.FC = () => {
       if (isBreak) {
         setTimeLeft(workTime);
         setIsBreak(false);
+        setIsFocusLocked(false); // Disable focus lock when break starts
       } else {
         setTimeLeft(breakTime);
         setIsBreak(true);
-        setIsRunning(true); // Auto-start break
+        setIsRunning(true);
       }
     }
 
@@ -44,27 +47,60 @@ export const FocusTimer: React.FC = () => {
   const reset = () => {
     setTimeLeft(isBreak ? breakTime : workTime);
     setIsRunning(false);
+    setIsFocusLocked(false);
+  };
+
+  const handlePlayPause = () => {
+    if (!isBreak && !isRunning) {
+      setIsFocusLocked(true);
+    }
+    setIsRunning(!isRunning);
+  };
+
+  const handleExitFocus = () => {
+    setIsFocusLocked(false);
+    setIsRunning(false);
+    reset();
+  };
+
+  const switchToWorkMode = () => {
+    setIsBreak(false);
+    setTimeLeft(workTime);
+    setIsRunning(false);
   };
 
   const progress = ((isBreak ? breakTime : workTime) - timeLeft) / (isBreak ? breakTime : workTime) * 100;
   const circumference = 2 * Math.PI * 88;
 
-  return (
-    <div className={`bg-white rounded-lg shadow-sm p-6 ${isBreak ? 'bg-green-50' : ''}`}>
+  const timerContent = (
+    <div className={`${isBreak ? 'bg-green-50' : ''}`}>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
           <Timer className={`w-5 h-5 ${isBreak ? 'text-green-500' : 'text-purple-500'}`} />
           {isBreak ? 'Break Timer' : 'Focus Timer'}
         </h2>
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="text-gray-600 hover:text-purple-600 transition-colors"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
+        {!isFocusLocked && (
+          <div className="flex items-center gap-2">
+            {isBreak && (
+              <button
+                onClick={switchToWorkMode}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Work Mode
+              </button>
+            )}
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="text-gray-600 hover:text-purple-600 transition-colors"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {showSettings && (
+      {showSettings && !isFocusLocked && (
         <div className="mb-6 space-y-4 bg-gray-50 p-4 rounded-lg">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -138,7 +174,7 @@ export const FocusTimer: React.FC = () => {
 
       <div className="flex justify-center gap-4">
         <button
-          onClick={() => setIsRunning(!isRunning)}
+          onClick={handlePlayPause}
           className={`p-3 rounded-full ${
             isRunning
               ? 'bg-red-100 text-red-600 hover:bg-red-200'
@@ -162,6 +198,19 @@ export const FocusTimer: React.FC = () => {
       <p className="text-center mt-4 text-sm text-gray-600">
         {isBreak ? 'Time for a break!' : 'Stay focused on your task'}
       </p>
+    </div>
+  );
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <FocusLock
+        isActive={isFocusLocked}
+        onExit={handleExitFocus}
+      >
+        {timerContent}
+      </FocusLock>
+      
+      {!isFocusLocked && timerContent}
     </div>
   );
 };

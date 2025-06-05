@@ -18,10 +18,24 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
   const [playSound, setPlaySound] = useState(true);
   const [soundType, setSoundType] = useState<'gentle' | 'chime'>('gentle');
   const [testingSound, setTestingSound] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !datetime) return;
+
+    const reminderTime = new Date(datetime);
+    const now = new Date();
+
+    if (reminderTime <= now) {
+      setError("Please select a future time for the reminder");
+      return;
+    }
+
+    // Request notification permission if not granted
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
 
     const reminder = {
       title: title.trim(),
@@ -38,11 +52,14 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
     setTestingSound(type);
     const audio = new Audio(SOUND_OPTIONS[type]);
     audio.volume = 0.5;
-    audio.play()
-      .then(() => {
-        setTimeout(() => setTestingSound(null), 1000);
-      })
-      .catch(console.error);
+    audio.load();
+    audio.addEventListener('canplaythrough', () => {
+      audio.play()
+        .then(() => {
+          setTimeout(() => setTestingSound(null), 1000);
+        })
+        .catch(console.error);
+    });
   };
 
   return (
@@ -69,10 +86,14 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
           type="datetime-local"
           id="datetime"
           value={datetime}
-          onChange={(e) => setDatetime(e.target.value)}
+          onChange={(e) => {
+            setDatetime(e.target.value);
+            setError(null);
+          }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           required
         />
+        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       </div>
 
       <div className="space-y-2">

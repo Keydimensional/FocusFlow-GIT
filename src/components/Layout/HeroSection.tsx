@@ -36,7 +36,7 @@ export const HeroSection: React.FC = () => {
       
       <p className="text-xl text-gray-700 mb-8">
         Tired of productivity apps that treat you like a robot?
-        BrainBounce Flow is designed for ADHD minds — flexible, forgiving, and actually helpful.
+        BrainBounce Flow is designed for ADHD minds; flexible, forgiving, and actually helpful.
         No pressure. No shame. Just small wins, dopamine-friendly design, and structure that bends with you.
       </p>
 
