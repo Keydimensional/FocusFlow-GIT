@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { Reminder } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Volume2, VolumeX } from 'lucide-react';
-import { detectDevice } from '../../utils/deviceDetection';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ReminderItemProps {
   reminder: Reminder;
 }
+
+const SOUND_OPTIONS = {
+  gentle: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+  chime: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
+};
 
 export const ReminderItem: React.FC<ReminderItemProps> = ({ reminder }) => {
   const { toggleReminder, deleteReminder, updateReminder } = useApp();
@@ -14,7 +19,9 @@ export const ReminderItem: React.FC<ReminderItemProps> = ({ reminder }) => {
   const [title, setTitle] = useState(reminder.title);
   const [datetime, setDatetime] = useState(reminder.datetime);
   const [playSound, setPlaySound] = useState(reminder.playSound ?? true);
-  const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
+  const [soundType, setSoundType] = useState<'gentle' | 'chime'>(reminder.soundType ?? 'gentle');
+  const [showConfirmComplete, setShowConfirmComplete] = useState(false);
+  const [testingSound, setTestingSound] = useState<string | null>(null);
 
   const formatDateTime = (datetime: string) => {
     return new Date(datetime).toLocaleString('en-GB', {
@@ -33,134 +40,51 @@ export const ReminderItem: React.FC<ReminderItemProps> = ({ reminder }) => {
       title: title.trim(),
       datetime,
       playSound,
+      soundType,
+      completed: reminder.completed
     });
     
     setIsEditing(false);
-    setShowCalendarPrompt(true);
   };
 
-  const generateCalendarContent = (format: 'ics' | 'vcs') => {
-    const dateStr = new Date(datetime).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    
-    if (format === 'ics') {
-      return `BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-SUMMARY:${title}
-DESCRIPTION:Reminder
-DTSTART:${dateStr}
-DTEND:${dateStr}
-END:VEVENT
-END:VCALENDAR`;
-    }
-    
-    return `BEGIN:VCALENDAR
-VERSION:1.0
-BEGIN:VEVENT
-SUMMARY:${title}
-DESCRIPTION:Reminder
-DTSTART:${dateStr}
-DTEND:${dateStr}
-END:VEVENT
-END:VCALENDAR`;
+  const testSound = (type: string) => {
+    setTestingSound(type);
+    const audio = new Audio(SOUND_OPTIONS[type as keyof typeof SOUND_OPTIONS]);
+    audio.volume = 0.5;
+    audio.play()
+      .then(() => {
+        setTimeout(() => setTestingSound(null), 1000);
+      })
+      .catch(console.error);
   };
 
-  const downloadCalendarFile = (format: 'ics' | 'vcs') => {
-    const content = generateCalendarContent(format);
-    const mimeType = format === 'ics' ? 'text/calendar' : 'text/x-vcalendar';
-    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = `reminder-${title.toLowerCase().replace(/\s+/g, '-')}.${format}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setShowCalendarPrompt(false);
-  };
-
-  const handleGoogleCalendar = () => {
-    const startDate = new Date(datetime);
-    const endDate = new Date(startDate);
-    endDate.setHours(startDate.getHours() + 1);
-
-    const googleUrl = new URL('https://calendar.google.com/calendar/render');
-    googleUrl.searchParams.append('action', 'TEMPLATE');
-    googleUrl.searchParams.append('text', title);
-    googleUrl.searchParams.append('details', 'Reminder');
-    googleUrl.searchParams.append('dates', 
-      `${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z` +
-      '/' +
-      `${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`
-    );
-
-    window.open(googleUrl.toString(), '_blank');
-    setShowCalendarPrompt(false);
-  };
-
-  if (showCalendarPrompt) {
-    const device = detectDevice();
-    
+  if (showConfirmComplete) {
     return (
-      <div className="p-4 bg-white rounded-lg shadow-sm">
-        <h3 className="text-lg font-medium mb-4">Add to Calendar</h3>
-        <div className="space-y-3">
-          {device.isIOS && (
-            <button
-              onClick={() => downloadCalendarFile('ics')}
-              className="w-full px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
-            >
-              Add to Apple Calendar
-            </button>
-          )}
-          
-          {device.isAndroid && (
-            <>
-              <button
-                onClick={handleGoogleCalendar}
-                className="w-full px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
-              >
-                Add to Google Calendar
-              </button>
-              <button
-                onClick={() => downloadCalendarFile('vcs')}
-                className="w-full px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-              >
-                Download .vcs File
-              </button>
-            </>
-          )}
-          
-          {!device.isMobile && (
-            <>
-              <button
-                onClick={() => downloadCalendarFile('ics')}
-                className="w-full px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
-              >
-                Download .ics File (Apple Calendar)
-              </button>
-              <button
-                onClick={handleGoogleCalendar}
-                className="w-full px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-              >
-                Add to Google Calendar
-              </button>
-              <button
-                onClick={() => downloadCalendarFile('vcs')}
-                className="w-full px-4 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg"
-              >
-                Download .vcs File (Other Calendars)
-              </button>
-            </>
-          )}
-          
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="p-4 bg-white rounded-lg shadow-sm border-2 border-green-100"
+      >
+        <p className="text-gray-700 mb-4">Do you want to mark this reminder as complete?</p>
+        <div className="flex justify-end gap-2">
           <button
-            onClick={() => setShowCalendarPrompt(false)}
-            className="w-full px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+            onClick={() => setShowConfirmComplete(false)}
+            className="px-3 py-1.5 text-gray-600 hover:text-gray-700"
           >
-            Skip
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              toggleReminder(reminder.id);
+              setShowConfirmComplete(false);
+            }}
+            className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
+          >
+            Complete
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -192,18 +116,43 @@ END:VCALENDAR`;
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPlaySound(!playSound)}
-              className={`p-2 rounded-lg transition-colors ${
-                playSound ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {playSound ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </button>
-            <span className="text-sm text-gray-600">
-              {playSound ? 'Sound enabled' : 'Sound disabled'}
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPlaySound(!playSound)}
+                className={`p-2 rounded-lg transition-colors ${
+                  playSound ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {playSound ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              </button>
+              <span className="text-sm text-gray-600">
+                {playSound ? 'Sound enabled' : 'Sound disabled'}
+              </span>
+            </div>
+
+            {playSound && (
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(SOUND_OPTIONS).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setSoundType(type as 'gentle' | 'chime');
+                      testSound(type);
+                    }}
+                    className={`p-2 rounded-lg text-sm transition-colors ${
+                      soundType === type
+                        ? 'bg-purple-100 text-purple-600'
+                        : 'bg-gray-100 text-gray-600'
+                    } ${testingSound === type ? 'animate-pulse' : ''}`}
+                  >
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3">
@@ -228,10 +177,10 @@ END:VCALENDAR`;
   return (
     <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
       <button
-        onClick={() => toggleReminder(reminder.id)}
+        onClick={() => setShowConfirmComplete(true)}
         className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-200
           ${reminder.completed 
-            ? 'bg-green-500 border-green-500 text-white' 
+            ? 'bg-green-100 border-green-500 text-green-500' 
             : 'border-gray-300 hover:border-green-500'
           }`}
       >
@@ -251,7 +200,9 @@ END:VCALENDAR`;
         {reminder.playSound && (
           <div className="flex items-center gap-1 mt-1 text-purple-600">
             <Volume2 className="w-4 h-4" />
-            <span className="text-xs">Sound enabled</span>
+            <span className="text-xs">
+              Sound: {reminder.soundType || 'gentle'}
+            </span>
           </div>
         )}
       </div>

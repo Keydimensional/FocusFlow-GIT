@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Check, X, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Check, X, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Settings } from 'lucide-react';
 
 interface MiniGameProps {
   gameType: string;
@@ -15,29 +15,42 @@ interface Card {
   isMatched: boolean;
 }
 
+const DIFFICULTY_LEVELS = {
+  easy: { pairs: 4, timeLimit: 3000 },
+  medium: { pairs: 6, timeLimit: 2000 },
+  hard: { pairs: 8, timeLimit: 1000 }
+};
+
 const MemoryGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<number>(0);
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
-    const emojis = ['🧠', '🎮', '🎯', '⭐', '🎨', '🎪'];
-    const initialCards = [...emojis, ...emojis]
-      .sort(() => Math.random() - 0.5)
-      .map((emoji, index) => ({
-        id: index,
-        value: emoji,
-        isFlipped: false,
-        isMatched: false,
-      }));
-    setCards(initialCards);
-  }, []);
+    if (isPlaying) {
+      const emojis = ['🧠', '🎮', '🎯', '⭐', '🎨', '🎪', '🎭', '🎪'];
+      const selectedEmojis = emojis.slice(0, DIFFICULTY_LEVELS[difficulty].pairs);
+      const initialCards = [...selectedEmojis, ...selectedEmojis]
+        .sort(() => Math.random() - 0.5)
+        .map((emoji, index) => ({
+          id: index,
+          value: emoji,
+          isFlipped: false,
+          isMatched: false,
+        }));
+      setCards(initialCards);
+      setMatchedPairs(0);
+      setFlippedCards([]);
+    }
+  }, [difficulty, isPlaying]);
 
   useEffect(() => {
-    if (matchedPairs === 6) {
+    if (matchedPairs === DIFFICULTY_LEVELS[difficulty].pairs) {
       setTimeout(onWin, 500);
     }
-  }, [matchedPairs, onWin]);
+  }, [matchedPairs, onWin, difficulty]);
 
   const handleCardClick = (id: number) => {
     if (flippedCards.length === 2) return;
@@ -69,29 +82,79 @@ const MemoryGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
               : card
           ));
           setFlippedCards([]);
-        }, 1000);
+        }, DIFFICULTY_LEVELS[difficulty].timeLimit);
       }
     }
   };
 
+  if (!isPlaying) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-center">Select Difficulty</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => {
+              setDifficulty('easy');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
+          >
+            Easy
+          </button>
+          <button
+            onClick={() => {
+              setDifficulty('medium');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200"
+          >
+            Medium
+          </button>
+          <button
+            onClick={() => {
+              setDifficulty('hard');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+          >
+            Hard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-4 gap-2">
-      {cards.map(card => (
-        <motion.button
-          key={card.id}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => !card.isFlipped && !card.isMatched && handleCardClick(card.id)}
-          className={`w-16 h-16 flex items-center justify-center text-2xl rounded-lg transition-all duration-300 ${
-            card.isFlipped || card.isMatched
-              ? 'bg-purple-100 rotate-0'
-              : 'bg-gray-200 rotate-180'
-          }`}
-          disabled={card.isFlipped || card.isMatched}
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-gray-600">
+          Difficulty: {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+        </span>
+        <button
+          onClick={() => setIsPlaying(false)}
+          className="text-gray-600 hover:text-gray-800"
         >
-          {(card.isFlipped || card.isMatched) && card.value}
-        </motion.button>
-      ))}
+          <Settings className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {cards.map(card => (
+          <motion.button
+            key={card.id}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => !card.isFlipped && !card.isMatched && handleCardClick(card.id)}
+            className={`w-16 h-16 flex items-center justify-center text-2xl rounded-lg transition-all duration-300 ${
+              card.isFlipped || card.isMatched
+                ? 'bg-purple-100 rotate-0'
+                : 'bg-gray-200 rotate-180'
+            }`}
+            disabled={card.isFlipped || card.isMatched}
+          >
+            {(card.isFlipped || card.isMatched) && card.value}
+          </motion.button>
+        ))}
+      </div>
     </div>
   );
 };
@@ -100,6 +163,14 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const [board, setBoard] = useState<number[][]>([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
   const [score, setScore] = useState(0);
   const [gameWon, setGameWon] = useState(false);
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const difficultyConfig = {
+    easy: { target: 16, spawnChance: 0.8 },
+    medium: { target: 32, spawnChance: 0.9 },
+    hard: { target: 64, spawnChance: 0.95 }
+  };
 
   const getEmptyTiles = (currentBoard: number[][]) => {
     const empty: [number, number][] = [];
@@ -117,9 +188,9 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
 
     const [row, col] = empty[Math.floor(Math.random() * empty.length)];
     const newBoard = currentBoard.map(r => [...r]);
-    newBoard[row][col] = Math.random() < 0.9 ? 2 : 4;
+    newBoard[row][col] = Math.random() < difficultyConfig[difficulty].spawnChance ? 2 : 4;
     return newBoard;
-  }, []);
+  }, [difficulty]);
 
   const initializeBoard = useCallback(() => {
     let newBoard = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
@@ -131,8 +202,10 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   }, [addNewTile]);
 
   useEffect(() => {
-    initializeBoard();
-  }, [initializeBoard]);
+    if (isPlaying) {
+      initializeBoard();
+    }
+  }, [isPlaying, initializeBoard]);
 
   const compress = (board: number[][]) => {
     const newBoard = Array(4).fill(0).map(() => Array(4).fill(0));
@@ -155,7 +228,7 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
         if (board[i][j] !== 0 && board[i][j] === board[i][j + 1]) {
           board[i][j] *= 2;
           if (updateScore) newScore += board[i][j];
-          if (board[i][j] >= 32) setGameWon(true);
+          if (board[i][j] >= difficultyConfig[difficulty].target) setGameWon(true);
           board[i][j + 1] = 0;
         }
       }
@@ -248,6 +321,8 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isPlaying) return;
+      
       switch (e.key) {
         case 'ArrowUp':
           move('up');
@@ -266,7 +341,7 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [board]);
+  }, [board, isPlaying]);
 
   const getTileColor = (value: number) => {
     const colors: Record<number, string> = {
@@ -285,16 +360,61 @@ const Game2048: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     return colors[value] || 'bg-gray-100';
   };
 
+  if (!isPlaying) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-center">Select Difficulty</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => {
+              setDifficulty('easy');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
+          >
+            Easy (16)
+          </button>
+          <button
+            onClick={() => {
+              setDifficulty('medium');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200"
+          >
+            Medium (32)
+          </button>
+          <button
+            onClick={() => {
+              setDifficulty('hard');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+          >
+            Hard (64)
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-xs mx-auto">
       <div className="flex justify-between items-center mb-4">
         <div className="text-lg font-bold">Score: {score}</div>
-        <button
-          onClick={initializeBoard}
-          className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-lg"
-        >
-          Reset
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={initializeBoard}
+            className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-lg"
+          >
+            Reset
+          </button>
+          <button
+            onClick={() => setIsPlaying(false)}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
       </div>
       
       <div className="bg-gray-100 p-4 rounded-lg">
@@ -355,16 +475,24 @@ const ReactionGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const [gameState, setGameState] = useState<'waiting' | 'ready' | 'clicked'>('waiting');
   const [startTime, setStartTime] = useState(0);
   const [reactionTime, setReactionTime] = useState(0);
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const difficultyConfig = {
+    easy: { targetTime: 1500 },
+    medium: { targetTime: 1000 },
+    hard: { targetTime: 500 }
+  };
 
   useEffect(() => {
-    if (gameState === 'waiting') {
+    if (isPlaying && gameState === 'waiting') {
       const timeout = setTimeout(() => {
         setGameState('ready');
         setStartTime(Date.now());
       }, Math.random() * 2000 + 1000);
       return () => clearTimeout(timeout);
     }
-  }, [gameState]);
+  }, [gameState, isPlaying]);
 
   const handleClick = () => {
     if (gameState === 'ready') {
@@ -372,7 +500,7 @@ const ReactionGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
       const reaction = endTime - startTime;
       setReactionTime(reaction);
       setGameState('clicked');
-      if (reaction < 1000) {
+      if (reaction < difficultyConfig[difficulty].targetTime) {
         setTimeout(onWin, 1000);
       } else {
         setTimeout(() => setGameState('waiting'), 1000);
@@ -382,8 +510,57 @@ const ReactionGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     }
   };
 
+  if (!isPlaying) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-center">Select Difficulty</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => {
+              setDifficulty('easy');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
+          >
+            Easy
+          </button>
+          <button
+            onClick={() => {
+              setDifficulty('medium');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200"
+          >
+            Medium
+          </button>
+          <button
+            onClick={() => {
+              setDifficulty('hard');
+              setIsPlaying(true);
+            }}
+            className="p-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+          >
+            Hard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="text-center">
+    <div className="text-center space-y-4">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-gray-600">
+          Difficulty: {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+        </span>
+        <button
+          onClick={() => setIsPlaying(false)}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+      </div>
+      
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -400,10 +577,11 @@ const ReactionGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
         {gameState === 'ready' && 'Click now!'}
         {gameState === 'clicked' && `${reactionTime}ms`}
       </motion.button>
-      <p className="mt-4 text-sm text-gray-600">
-        {gameState === 'clicked' && reactionTime < 1000
+      
+      <p className="text-sm text-gray-600">
+        {gameState === 'clicked' && reactionTime < difficultyConfig[difficulty].targetTime
           ? 'Great reaction time!'
-          : 'Click when the box turns green'}
+          : `Target: ${difficultyConfig[difficulty].targetTime}ms`}
       </p>
     </div>
   );

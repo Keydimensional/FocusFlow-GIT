@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SunMedium, Settings } from 'lucide-react';
 import { SettingsModal } from '../Settings/SettingsModal';
+import { HeroSection } from './HeroSection';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,11 +16,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center">
             <SunMedium className="h-6 w-6 text-yellow-500 mr-2" />
-            <h1 className="text-xl font-semibold text-gray-800">ADHD FocusFlow</h1>
+            <h1 className="text-xl font-semibold text-gray-800">BrainBounce Flow</h1>
           </div>
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <HeroSection />
         {children}
       </main>
       <footer className="text-center text-sm text-gray-600 py-4">

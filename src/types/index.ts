@@ -12,6 +12,7 @@ export interface Reminder {
   datetime: string;
   completed: boolean;
   playSound?: boolean;
+  soundType?: 'gentle' | 'chime';
 }
 
 export interface Goal {

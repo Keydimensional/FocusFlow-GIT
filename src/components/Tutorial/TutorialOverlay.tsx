@@ -4,16 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const steps = [
   {
-    title: 'Welcome to ADHD FocusFlow! 🌟',
-    content: 'Your personal productivity companion designed specifically for ADHD minds. Let\'s explore the key features that will help you stay focused and organized.',
+    title: 'Welcome to BrainBounce Flow! 🌟',
+    content: 'Your personal productivity companion designed specifically for ADHD minds. Let\'s explore the key features that will help you stay organised and focused.',
   },
   {
     title: 'Daily Focus & Brain Dump 🎯',
     content: 'Start your day by setting a main focus, then use the Brain Dump feature to clear your mind of any distracting thoughts or tasks. It\'s like a digital notepad for your brain!',
   },
   {
-    title: 'Customizable Focus Timer ⏱️',
-    content: 'Use the Focus Timer for structured work sessions. You can customize both work and break durations to match your optimal focus patterns.',
+    title: 'Customisable Focus Timer ⏱️',
+    content: 'Use the Focus Timer for structured work sessions. You can customise both work and break durations to match your optimal focus patterns.',
   },
   {
     title: 'Mood Tracking & Habits 📈',
@@ -25,7 +25,7 @@ const steps = [
   },
   {
     title: 'Make It Your Own! 🎨',
-    content: 'Click the settings button in the bottom right corner to customize your dashboard. You can show/hide widgets and drag them to reorder - create the perfect layout that works best for you!',
+    content: 'Click the settings button in the bottom right corner to customise your dashboard. You can show/hide widgets and drag them to reorder - create the perfect layout that works best for you!',
   }
 ];
 

@@ -25,7 +25,10 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
             });
 
             if (reminder.playSound) {
-              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+              const audio = new Audio(reminder.soundType 
+                ? SOUND_OPTIONS[reminder.soundType]
+                : SOUND_OPTIONS.gentle
+              );
               audio.volume = 0.5;
               audio.play().catch(console.error);
             }

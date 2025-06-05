@@ -57,7 +57,7 @@ export const HabitTracker: React.FC = () => {
               <HabitForm onComplete={() => setShowForm(false)} />
             ) : (
               <>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-3">
                   {habits.length === 0 ? (
                     <p className="text-gray-500 text-center py-4">
                       No habits yet. Add one to get started!
