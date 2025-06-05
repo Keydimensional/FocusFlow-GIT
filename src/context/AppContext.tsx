@@ -57,13 +57,29 @@ const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>(defaultState);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Initialize data when auth state changes
   useEffect(() => {
+    let mounted = true;
+
     const initializeData = async () => {
+      if (!auth.currentUser) {
+        if (mounted) {
+          setIsLoading(false);
+          setIsInitialized(false);
+        }
+        return;
+      }
+
       try {
-        if (auth.currentUser) {
-          const userData = await loadUserData(auth.currentUser.uid);
+        setIsLoading(true);
+        setError(null);
+        
+        const userData = await loadUserData(auth.currentUser.uid);
+        
+        if (mounted) {
           if (userData) {
             setState(userData);
           }
@@ -72,17 +88,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch (err) {
         console.error('Error initializing data:', err);
-        setError('Failed to load your data. Please try refreshing the page.');
+        if (mounted) {
+          setError('Failed to load your data. Please try refreshing the page.');
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     initializeData();
-  }, []);
 
+    return () => {
+      mounted = false;
+    };
+  }, [auth.currentUser?.uid]);
+
+  // Save state changes
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     
-    if (isInitialized && auth.currentUser) {
+    if (isInitialized && auth.currentUser && !isLoading) {
       timeout = setTimeout(async () => {
         try {
           await saveUserData(auth.currentUser.uid, state);
@@ -95,8 +122,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return () => clearTimeout(timeout);
-  }, [state, isInitialized]);
+  }, [state, isInitialized, isLoading]);
 
+  // Check daily interactions
   useEffect(() => {
     const checkDailyInteractions = () => {
       const today = formatDate(new Date());
@@ -117,242 +145,223 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    checkDailyInteractions();
-  }, [state.goals, state.reminders, state.habits, state.moods]);
+    if (!isLoading && isInitialized) {
+      checkDailyInteractions();
+    }
+  }, [state.goals, state.reminders, state.habits, state.moods, isLoading, isInitialized]);
 
-  const addMood = (mood: Mood, reflection?: string) => {
-    const date = formatDate(new Date());
-    setState(prev => ({
-      ...prev,
-      moods: [...prev.moods, { date, mood, reflection }]
-    }));
-  };
-
-  const updateMood = (date: string, mood: Mood, reflection?: string) => {
-    setState(prev => ({
-      ...prev,
-      moods: prev.moods.map(entry => 
-        entry.date === date 
-          ? { ...entry, mood, reflection }
-          : entry
-      )
-    }));
-  };
-
-  const addGoal = (goal: Omit<Goal, 'id' | 'createdAt' | 'completed'>) => {
-    const newGoal: Goal = {
-      ...goal,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      completed: false
-    };
-    setState(prev => ({
-      ...prev,
-      goals: [...prev.goals, newGoal]
-    }));
-  };
-
-  const updateGoal = (id: string, updates: Partial<Goal>) => {
-    setState(prev => ({
-      ...prev,
-      goals: prev.goals.map(goal =>
-        goal.id === id ? { ...goal, ...updates } : goal
-      )
-    }));
-  };
-
-  const toggleGoal = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      goals: prev.goals.map(goal =>
-        goal.id === id ? { ...goal, completed: !goal.completed } : goal
-      )
-    }));
-  };
-
-  const deleteGoal = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      goals: prev.goals.filter(goal => goal.id !== id)
-    }));
-  };
-
-  const addReminder = (reminder: Omit<Reminder, 'id' | 'completed'>) => {
-    const newReminder: Reminder = {
-      ...reminder,
-      id: crypto.randomUUID(),
-      completed: false
-    };
-    setState(prev => ({
-      ...prev,
-      reminders: [...prev.reminders, newReminder]
-    }));
-  };
-
-  const updateReminder = (id: string, updates: Partial<Reminder>) => {
-    setState(prev => ({
-      ...prev,
-      reminders: prev.reminders.map(reminder =>
-        reminder.id === id ? { ...reminder, ...updates } : reminder
-      )
-    }));
-  };
-
-  const toggleReminder = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      reminders: prev.reminders.map(reminder =>
-        reminder.id === id ? { ...reminder, completed: !reminder.completed } : reminder
-      )
-    }));
-  };
-
-  const deleteReminder = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      reminders: prev.reminders.filter(reminder => reminder.id !== id)
-    }));
-  };
-
-  const addHabit = (habit: Pick<Habit, 'title' | 'frequency' | 'color' | 'gameType'>) => {
-    const newHabit: Habit = {
-      ...habit,
-      id: crypto.randomUUID(),
-      completedDates: [],
-      streak: 0,
-      createdAt: new Date().toISOString()
-    };
-    setState(prev => ({
-      ...prev,
-      habits: [...prev.habits, newHabit]
-    }));
-  };
-
-  const toggleHabit = (id: string) => {
-    const today = formatDate(new Date());
-    setState(prev => ({
-      ...prev,
-      habits: prev.habits.map(habit => {
-        if (habit.id !== id) return habit;
-
-        const isCompleted = habit.completedDates.includes(today);
-        const completedDates = isCompleted
-          ? habit.completedDates.filter(date => date !== today)
-          : [...habit.completedDates, today];
-
-        return {
-          ...habit,
-          completedDates,
-          streak: calculateStreak(completedDates)
-        };
-      })
-    }));
-  };
-
-  const deleteHabit = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      habits: prev.habits.filter(habit => habit.id !== id)
-    }));
-  };
-
-  const addFocus = (text: string) => {
-    setState(prev => ({
-      ...prev,
-      todaysFocus: {
-        text,
-        timestamp: Date.now()
-      }
-    }));
-  };
-
-  const updateFocus = (text: string) => {
-    setState(prev => ({
-      ...prev,
-      todaysFocus: prev.todaysFocus ? {
-        ...prev.todaysFocus,
-        text
-      } : null
-    }));
-  };
-
-  const addBrainDump = (text: string) => {
-    const newItem = {
-      id: crypto.randomUUID(),
-      text,
-      timestamp: Date.now(),
-    };
-    
-    setState(prev => ({
-      ...prev,
-      brainDump: [...prev.brainDump, newItem],
-    }));
-  };
-
-  const clearBrainDump = () => {
-    setState(prev => ({
-      ...prev,
-      brainDump: [],
-    }));
-  };
-
-  const updateWidgetOrder = (widgets: Widget[]) => {
-    setState(prev => ({
-      ...prev,
-      widgets,
-    }));
-  };
-
-  const toggleWidget = (widgetId: string) => {
-    setState(prev => ({
-      ...prev,
-      widgets: prev.widgets.map(widget =>
-        widget.id === widgetId
-          ? { ...widget, visible: !widget.visible }
-          : widget
-      ),
-    }));
-  };
-
-  const resetWidgets = () => {
-    setState(prev => ({
-      ...prev,
-      widgets: defaultWidgets,
-    }));
-  };
-
-  if (error) {
+  if (isLoading) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-        {error}
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-purple-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
+        </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-purple-50 p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+          <div className="text-red-600 mb-4">{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const contextValue: AppContextType = {
+    ...state,
+    addMood: (mood: Mood, reflection?: string) => {
+      const date = formatDate(new Date());
+      setState(prev => ({
+        ...prev,
+        moods: [...prev.moods, { date, mood, reflection }]
+      }));
+    },
+    updateMood: (date: string, mood: Mood, reflection?: string) => {
+      setState(prev => ({
+        ...prev,
+        moods: prev.moods.map(entry => 
+          entry.date === date 
+            ? { ...entry, mood, reflection }
+            : entry
+        )
+      }));
+    },
+    addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'completed'>) => {
+      const newGoal: Goal = {
+        ...goal,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        completed: false
+      };
+      setState(prev => ({
+        ...prev,
+        goals: [...prev.goals, newGoal]
+      }));
+    },
+    updateGoal: (id: string, updates: Partial<Goal>) => {
+      setState(prev => ({
+        ...prev,
+        goals: prev.goals.map(goal =>
+          goal.id === id ? { ...goal, ...updates } : goal
+        )
+      }));
+    },
+    toggleGoal: (id: string) => {
+      setState(prev => ({
+        ...prev,
+        goals: prev.goals.map(goal =>
+          goal.id === id ? { ...goal, completed: !goal.completed } : goal
+        )
+      }));
+    },
+    deleteGoal: (id: string) => {
+      setState(prev => ({
+        ...prev,
+        goals: prev.goals.filter(goal => goal.id !== id)
+      }));
+    },
+    addReminder: (reminder: Omit<Reminder, 'id' | 'completed'>) => {
+      const newReminder: Reminder = {
+        ...reminder,
+        id: crypto.randomUUID(),
+        completed: false
+      };
+      setState(prev => ({
+        ...prev,
+        reminders: [...prev.reminders, newReminder]
+      }));
+    },
+    updateReminder: (id: string, updates: Partial<Reminder>) => {
+      setState(prev => ({
+        ...prev,
+        reminders: prev.reminders.map(reminder =>
+          reminder.id === id ? { ...reminder, ...updates } : reminder
+        )
+      }));
+    },
+    toggleReminder: (id: string) => {
+      setState(prev => ({
+        ...prev,
+        reminders: prev.reminders.map(reminder =>
+          reminder.id === id ? { ...reminder, completed: !reminder.completed } : reminder
+        )
+      }));
+    },
+    deleteReminder: (id: string) => {
+      setState(prev => ({
+        ...prev,
+        reminders: prev.reminders.filter(reminder => reminder.id !== id)
+      }));
+    },
+    addHabit: (habit: Pick<Habit, 'title' | 'frequency' | 'color' | 'gameType'>) => {
+      const newHabit: Habit = {
+        ...habit,
+        id: crypto.randomUUID(),
+        completedDates: [],
+        streak: 0,
+        createdAt: new Date().toISOString()
+      };
+      setState(prev => ({
+        ...prev,
+        habits: [...prev.habits, newHabit]
+      }));
+    },
+    toggleHabit: (id: string) => {
+      const today = formatDate(new Date());
+      setState(prev => ({
+        ...prev,
+        habits: prev.habits.map(habit => {
+          if (habit.id !== id) return habit;
+
+          const isCompleted = habit.completedDates.includes(today);
+          const completedDates = isCompleted
+            ? habit.completedDates.filter(date => date !== today)
+            : [...habit.completedDates, today];
+
+          return {
+            ...habit,
+            completedDates,
+            streak: calculateStreak(completedDates)
+          };
+        })
+      }));
+    },
+    deleteHabit: (id: string) => {
+      setState(prev => ({
+        ...prev,
+        habits: prev.habits.filter(habit => habit.id !== id)
+      }));
+    },
+    addFocus: (text: string) => {
+      setState(prev => ({
+        ...prev,
+        todaysFocus: {
+          text,
+          timestamp: Date.now()
+        }
+      }));
+    },
+    updateFocus: (text: string) => {
+      setState(prev => ({
+        ...prev,
+        todaysFocus: prev.todaysFocus ? {
+          ...prev.todaysFocus,
+          text
+        } : null
+      }));
+    },
+    addBrainDump: (text: string) => {
+      const newItem = {
+        id: crypto.randomUUID(),
+        text,
+        timestamp: Date.now(),
+      };
+      setState(prev => ({
+        ...prev,
+        brainDump: [...prev.brainDump, newItem],
+      }));
+    },
+    clearBrainDump: () => {
+      setState(prev => ({
+        ...prev,
+        brainDump: [],
+      }));
+    },
+    updateWidgetOrder: (widgets: Widget[]) => {
+      setState(prev => ({
+        ...prev,
+        widgets,
+      }));
+    },
+    toggleWidget: (widgetId: string) => {
+      setState(prev => ({
+        ...prev,
+        widgets: prev.widgets.map(widget =>
+          widget.id === widgetId
+            ? { ...widget, visible: !widget.visible }
+            : widget
+        ),
+      }));
+    },
+    resetWidgets: () => {
+      setState(prev => ({
+        ...prev,
+        widgets: defaultWidgets,
+      }));
+    },
+  };
+
   return (
-    <AppContext.Provider value={{
-      ...state,
-      addMood,
-      updateMood,
-      addGoal,
-      updateGoal,
-      toggleGoal,
-      deleteGoal,
-      addReminder,
-      updateReminder,
-      toggleReminder,
-      deleteReminder,
-      addHabit,
-      toggleHabit,
-      deleteHabit,
-      addFocus,
-      updateFocus,
-      addBrainDump,
-      clearBrainDump,
-      updateWidgetOrder,
-      toggleWidget,
-      resetWidgets,
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
