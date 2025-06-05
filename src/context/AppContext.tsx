@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, Goal, Mood, Reminder, Habit, Widget, DailyFocus } from '../types';
-import { loadState, saveState } from '../utils/storage';
+import { saveUserData, loadUserData } from '../utils/firestore';
+import { auth } from '../firebase';
 import { formatDate, isConsecutiveDay, isToday, calculateStreak } from '../utils/dateUtils';
 
 interface AppContextType extends AppState {
@@ -54,26 +55,28 @@ const defaultState: AppState = {
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AppState>(() => {
-    const savedState = loadState();
-    return {
-      ...defaultState,
-      ...savedState,
-      moods: Array.isArray(savedState.moods) ? savedState.moods : defaultState.moods,
-      goals: Array.isArray(savedState.goals) ? savedState.goals : defaultState.goals,
-      reminders: Array.isArray(savedState.reminders) ? savedState.reminders : defaultState.reminders,
-      habits: Array.isArray(savedState.habits) ? savedState.habits : defaultState.habits,
-      brainDump: Array.isArray(savedState.brainDump) ? savedState.brainDump : defaultState.brainDump,
-      widgets: Array.isArray(savedState.widgets) ? savedState.widgets : defaultState.widgets,
-      todaysFocus: savedState.todaysFocus && typeof savedState.todaysFocus === 'object' ? savedState.todaysFocus : defaultState.todaysFocus,
-      lastCheckIn: typeof savedState.lastCheckIn === 'string' ? savedState.lastCheckIn : defaultState.lastCheckIn,
-      streak: typeof savedState.streak === 'number' && !isNaN(savedState.streak) ? savedState.streak : defaultState.streak,
-    };
-  });
+  const [state, setState] = useState<AppState>(defaultState);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const userData = await loadUserData(user.uid);
+        if (userData) {
+          setState(userData);
+        }
+        setIsInitialized(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized && auth.currentUser) {
+      saveUserData(auth.currentUser.uid, state);
+    }
+  }, [state, isInitialized]);
 
   useEffect(() => {
     const checkDailyInteractions = () => {
