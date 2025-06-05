@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
+import { getAuth, setPersistence, browserLocalPersistence, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDewpEed7Haz-Zxe_-dLOr7YNytaSdwNlg",
@@ -11,28 +11,16 @@ const firebaseConfig = {
   appId: "1:314560100011:web:abfc8275d7da9ad350a9ee"
 };
 
-// Initialize Firebase with memory management settings
-const app = initializeApp({
-  ...firebaseConfig,
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: true
-});
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
-// Initialize Auth with session persistence for better mobile compatibility
+// Initialize Auth with local persistence
 export const auth = getAuth(app);
-setPersistence(auth, browserSessionPersistence).catch((err) => {
-  console.warn('Auth persistence failed:', err);
-});
+setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-// Initialize Firestore with optimized settings for mobile
+// Initialize Firestore with optimized settings
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager(),
-    cacheSizeBytes: 5242880 // 5MB cache limit for mobile
-  }),
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: true
+    tabManager: persistentMultipleTabManager()
+  })
 });
-
-// Add connection state monitoring
-db.enableNetwork().catch(console.error);
