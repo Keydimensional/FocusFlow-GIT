@@ -1,54 +1,62 @@
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AppState } from '../types';
+import debounce from 'lodash/debounce';
 
 const CACHE_KEY = 'focusflow_cache';
 let unsubscribeSnapshot: (() => void) | null = null;
+let memoryCache: { data: AppState; timestamp: number } | null = null;
 
-// Cache data locally with fallback for private browsing
-const cacheData = (data: AppState) => {
+// Debounced save function
+const debouncedSave = debounce(async (userDocRef: any, saveData: any) => {
   try {
-    const cache = {
-      data,
-      timestamp: Date.now()
-    };
-    
-    // Try localStorage first
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    } catch (e) {
-      // If localStorage fails, try sessionStorage
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    }
+    await setDoc(userDocRef, saveData, { merge: true });
   } catch (error) {
-    console.error('Error caching data:', error);
+    console.error('Debounced save failed:', error);
+    throw error;
+  }
+}, 1000);
+
+const cacheData = (data: AppState) => {
+  const cache = {
+    data,
+    timestamp: Date.now()
+  };
+  
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch (e) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+      memoryCache = cache;
+    }
   }
 };
 
-// Load cached data with fallback
 const loadCache = (): AppState | null => {
+  const MAX_CACHE_AGE = 3600000; // 1 hour
+  
   try {
-    let cached: string | null = null;
-    
-    // Try localStorage first
-    try {
-      cached = localStorage.getItem(CACHE_KEY);
-    } catch (e) {
-      // If localStorage fails, try sessionStorage
-      cached = sessionStorage.getItem(CACHE_KEY);
+    const localData = localStorage.getItem(CACHE_KEY);
+    if (localData) {
+      const { data, timestamp } = JSON.parse(localData);
+      if (Date.now() - timestamp < MAX_CACHE_AGE) return data;
     }
-    
-    if (!cached) return null;
-    
-    const { data, timestamp } = JSON.parse(cached);
-    const cacheAge = Date.now() - timestamp;
-    
-    // Only use cache if it's less than 1 hour old
-    return cacheAge < 3600000 ? data : null;
-  } catch (error) {
-    console.error('Error loading cache:', error);
-    return null;
+  } catch (e) {
+    try {
+      const sessionData = sessionStorage.getItem(CACHE_KEY);
+      if (sessionData) {
+        const { data, timestamp } = JSON.parse(sessionData);
+        if (Date.now() - timestamp < MAX_CACHE_AGE) return data;
+      }
+    } catch (e) {
+      if (memoryCache && Date.now() - memoryCache.timestamp < MAX_CACHE_AGE) {
+        return memoryCache.data;
+      }
+    }
   }
+  return null;
 };
 
 export const saveUserData = async (uid: string, data: AppState): Promise<void> => {
@@ -59,17 +67,18 @@ export const saveUserData = async (uid: string, data: AppState): Promise<void> =
       lastUpdated: new Date().toISOString()
     };
     
-    // Update cache
+    // Update cache immediately
     cacheData(saveData);
     
-    // Update Firestore with retry logic
+    // Debounced Firestore update with retry logic
     const maxRetries = 3;
     let retries = 0;
     
     const attemptSave = async (): Promise<void> => {
       try {
-        await setDoc(userDocRef, saveData, { merge: true });
+        await debouncedSave(userDocRef, saveData);
       } catch (error) {
+        console.error(`Save attempt ${retries + 1} failed:`, error);
         if (retries < maxRetries) {
           retries++;
           await new Promise(resolve => setTimeout(resolve, 1000 * retries));
@@ -82,13 +91,12 @@ export const saveUserData = async (uid: string, data: AppState): Promise<void> =
     await attemptSave();
   } catch (error) {
     console.error('Error saving user data:', error);
-    // Fallback to cache
+    // Ensure data is cached even if save fails
     cacheData(data);
   }
 };
 
 export const loadUserData = async (uid: string): Promise<AppState | null> => {
-  // Unsubscribe from any existing snapshot listener
   if (unsubscribeSnapshot) {
     unsubscribeSnapshot();
   }
@@ -107,23 +115,18 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
           }
         },
         error: (error) => {
-          console.error('Error in real-time sync:', error);
-          // On error, fall back to cache
+          console.error('Real-time sync error:', error);
           const cached = loadCache();
-          if (cached) {
-            cacheData(cached);
-          }
+          if (cached) cacheData(cached);
         }
       }
     );
 
-    // Try loading from cache first
+    // Try cache first
     const cached = loadCache();
-    if (cached) {
-      return cached;
-    }
+    if (cached) return cached;
 
-    // If no cache, load from Firestore with retry logic
+    // Load from Firestore with retries
     const maxRetries = 3;
     let retries = 0;
     
@@ -137,6 +140,7 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
         }
         return null;
       } catch (error) {
+        console.error(`Load attempt ${retries + 1} failed:`, error);
         if (retries < maxRetries) {
           retries++;
           await new Promise(resolve => setTimeout(resolve, 1000 * retries));
@@ -149,23 +153,23 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
     return await attemptLoad();
   } catch (error) {
     console.error('Error loading user data:', error);
-    return loadCache(); // Fallback to cache
+    return loadCache();
   }
 };
 
-// Cleanup function to be called when user logs out
 export const cleanup = () => {
   if (unsubscribeSnapshot) {
     unsubscribeSnapshot();
     unsubscribeSnapshot = null;
   }
+  
   try {
     localStorage.removeItem(CACHE_KEY);
   } catch (e) {
     try {
       sessionStorage.removeItem(CACHE_KEY);
     } catch (e) {
-      console.warn('Failed to clean up cache');
+      memoryCache = null;
     }
   }
 };

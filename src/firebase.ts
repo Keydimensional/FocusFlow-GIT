@@ -21,8 +21,7 @@ setPersistence(auth, browserLocalPersistence).catch(console.error);
 // Initialize Firestore with persistent cache
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager({
-      forceOwnership: true
-    })
-  })
+    tabManager: persistentSingleTabManager({ forceOwnership: true })
+  }),
+  experimentalForceLongPolling: true,
 });
