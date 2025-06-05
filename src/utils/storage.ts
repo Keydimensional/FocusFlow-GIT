@@ -1,6 +1,6 @@
 import { AppState } from '../types';
 
-const STORAGE_KEY = 'adhd-app-state';
+const STORAGE_KEY = 'focusflow_state';
 
 const defaultState: AppState = {
   moods: [],
@@ -25,65 +25,36 @@ const defaultState: AppState = {
   ],
 };
 
-const isStorageAvailable = () => {
-  try {
-    const test = '__storage_test__';
-    localStorage.setItem(test, test);
-    localStorage.removeItem(test);
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
-
-function loadFromStorage<T>(key: string, fallback: T): T {
-  if (!isStorageAvailable()) {
-    console.warn('localStorage is not available');
-    return fallback;
-  }
-
-  try {
-    const item = localStorage.getItem(key);
-    if (!item) return fallback;
-
-    const parsed = JSON.parse(item);
-    if (!parsed || typeof parsed !== 'object') return fallback;
-
-    return parsed;
-  } catch (error) {
-    console.error('Failed to load state from localStorage:', error);
-    return fallback;
-  }
-}
-
-export const loadState = (): AppState => {
-  const state = loadFromStorage<AppState>(STORAGE_KEY, defaultState);
-  
-  return {
-    ...defaultState,
-    ...state,
-    moods: Array.isArray(state.moods) ? state.moods : defaultState.moods,
-    goals: Array.isArray(state.goals) ? state.goals : defaultState.goals,
-    reminders: Array.isArray(state.reminders) ? state.reminders : defaultState.reminders,
-    habits: Array.isArray(state.habits) ? state.habits : defaultState.habits,
-    brainDump: Array.isArray(state.brainDump) ? state.brainDump : defaultState.brainDump,
-    widgets: Array.isArray(state.widgets) ? state.widgets : defaultState.widgets,
-    todaysFocus: state.todaysFocus && typeof state.todaysFocus === 'object' ? state.todaysFocus : defaultState.todaysFocus,
-    lastCheckIn: typeof state.lastCheckIn === 'string' ? state.lastCheckIn : defaultState.lastCheckIn,
-    streak: typeof state.streak === 'number' && !isNaN(state.streak) ? state.streak : defaultState.streak,
-  };
-};
-
 export const saveState = (state: AppState): void => {
-  if (!isStorageAvailable()) {
-    console.warn('localStorage is not available');
-    return;
-  }
-
   try {
     const serializedState = JSON.stringify(state);
     localStorage.setItem(STORAGE_KEY, serializedState);
   } catch (error) {
-    console.error('Failed to save state to localStorage:', error);
+    console.error('Failed to save state:', error);
+  }
+};
+
+export const loadState = (): AppState => {
+  try {
+    const serializedState = localStorage.getItem(STORAGE_KEY);
+    if (!serializedState) return defaultState;
+
+    const parsedState = JSON.parse(serializedState);
+    
+    // Validate and merge with default state to ensure all properties exist
+    return {
+      ...defaultState,
+      ...parsedState,
+      // Ensure arrays are valid
+      moods: Array.isArray(parsedState.moods) ? parsedState.moods : defaultState.moods,
+      goals: Array.isArray(parsedState.goals) ? parsedState.goals : defaultState.goals,
+      reminders: Array.isArray(parsedState.reminders) ? parsedState.reminders : defaultState.reminders,
+      habits: Array.isArray(parsedState.habits) ? parsedState.habits : defaultState.habits,
+      brainDump: Array.isArray(parsedState.brainDump) ? parsedState.brainDump : defaultState.brainDump,
+      widgets: Array.isArray(parsedState.widgets) ? parsedState.widgets : defaultState.widgets,
+    };
+  } catch (error) {
+    console.error('Failed to load state:', error);
+    return defaultState;
   }
 };

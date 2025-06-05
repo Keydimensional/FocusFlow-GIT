@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, Goal, Mood, Reminder, Habit, Widget, DailyFocus } from '../types';
-import { saveUserData, loadUserData } from '../utils/firestore';
-import { auth } from '../firebase';
+import { AppState, Goal, Mood, Reminder, Habit, Widget } from '../types';
+import { saveState, loadState } from '../utils/storage';
 import { formatDate, isConsecutiveDay, isToday, calculateStreak } from '../utils/dateUtils';
+import debounce from 'lodash/debounce';
 
 interface AppContextType extends AppState {
   addMood: (mood: Mood, reflection?: string) => void;
@@ -27,102 +27,20 @@ interface AppContextType extends AppState {
   resetWidgets: () => void;
 }
 
-const defaultWidgets: Widget[] = [
-  { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
-  { id: 'focusTimer', type: 'focusTimer', visible: true, order: 1 },
-  { id: 'streakCounter', type: 'streakCounter', visible: true, order: 2 },
-  { id: 'moodCheck', type: 'moodCheck', visible: true, order: 3 },
-  { id: 'moodBoard', type: 'moodBoard', visible: true, order: 4 },
-  { id: 'brainDump', type: 'brainDump', visible: true, order: 5 },
-  { id: 'moodHistory', type: 'moodHistory', visible: true, order: 6 },
-  { id: 'goalList', type: 'goalList', visible: true, order: 7 },
-  { id: 'reminderList', type: 'reminderList', visible: true, order: 8 },
-  { id: 'habitTracker', type: 'habitTracker', visible: true, order: 9 },
-];
-
-const defaultState: AppState = {
-  moods: [],
-  goals: [],
-  reminders: [],
-  habits: [],
-  lastCheckIn: null,
-  streak: 0,
-  todaysFocus: null,
-  brainDump: [],
-  widgets: defaultWidgets,
-};
-
 const AppContext = createContext<AppContextType | null>(null);
 
+// Debounced save function to prevent too frequent writes
+const debouncedSave = debounce((state: AppState) => {
+  saveState(state);
+}, 1000);
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AppState>(defaultState);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<AppState>(loadState());
 
-  // Initialize data when auth state changes
+  // Save state changes to localStorage
   useEffect(() => {
-    let mounted = true;
-
-    const initializeData = async () => {
-      if (!auth.currentUser) {
-        if (mounted) {
-          setIsLoading(false);
-          setIsInitialized(false);
-        }
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        const userData = await loadUserData(auth.currentUser.uid);
-        
-        if (mounted) {
-          if (userData) {
-            setState(userData);
-          }
-          setIsInitialized(true);
-          setError(null);
-        }
-      } catch (err) {
-        console.error('Error initializing data:', err);
-        if (mounted) {
-          setError('Failed to load your data. Please try refreshing the page.');
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initializeData();
-
-    return () => {
-      mounted = false;
-    };
-  }, [auth.currentUser?.uid]);
-
-  // Save state changes
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    
-    if (isInitialized && auth.currentUser && !isLoading) {
-      timeout = setTimeout(async () => {
-        try {
-          await saveUserData(auth.currentUser.uid, state);
-          setError(null);
-        } catch (err) {
-          console.error('Error saving data:', err);
-          setError('Failed to save your changes. Please check your connection.');
-        }
-      }, 1000);
-    }
-
-    return () => clearTimeout(timeout);
-  }, [state, isInitialized, isLoading]);
+    debouncedSave(state);
+  }, [state]);
 
   // Check daily interactions
   useEffect(() => {
@@ -145,36 +63,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    if (!isLoading && isInitialized) {
-      checkDailyInteractions();
-    }
-  }, [state.goals, state.reminders, state.habits, state.moods, isLoading, isInitialized]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-purple-50">
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-purple-50 p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-          <div className="text-red-600 mb-4">{error}</div>
-          <button
-            onClick={() => window.location.reload()}
-            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+    checkDailyInteractions();
+  }, [state.goals, state.reminders, state.habits, state.moods]);
 
   const contextValue: AppContextType = {
     ...state,
@@ -355,7 +245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     resetWidgets: () => {
       setState(prev => ({
         ...prev,
-        widgets: defaultWidgets,
+        widgets: loadState().widgets,
       }));
     },
   };
