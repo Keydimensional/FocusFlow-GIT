@@ -48,10 +48,11 @@ export const playAudio = async (url: string): Promise<void> => {
     const playInstance = audio.cloneNode() as HTMLAudioElement;
     playInstance.volume = 0.5;
     
-    // Handle Safari's autoplay restrictions
-    const playPromise = playInstance.play();
-    if (playPromise) {
-      await playPromise;
+    // Handle mobile browser autoplay restrictions
+    try {
+      await playInstance.play();
+    } catch (error) {
+      console.warn('Audio playback failed:', error);
     }
   } catch (error) {
     console.error('Error playing audio:', error);
