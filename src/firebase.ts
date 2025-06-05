@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,19 +11,28 @@ const firebaseConfig = {
   appId: "1:314560100011:web:abfc8275d7da9ad350a9ee"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase with memory management settings
+const app = initializeApp({
+  ...firebaseConfig,
+  experimentalForceLongPolling: true,
+  experimentalAutoDetectLongPolling: true
+});
 
-// Initialize Auth with persistence
+// Initialize Auth with session persistence for better mobile compatibility
 export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch((err) => {
+setPersistence(auth, browserSessionPersistence).catch((err) => {
   console.warn('Auth persistence failed:', err);
 });
 
-// Initialize Firestore with persistent cache
+// Initialize Firestore with optimized settings for mobile
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(
-    // Use single tab persistence to avoid conflicts
-    { tabManager: persistentSingleTabManager() }
-  )
+  localCache: persistentLocalCache({
+    tabManager: persistentSingleTabManager(),
+    cacheSizeBytes: 5242880 // 5MB cache limit for mobile
+  }),
+  experimentalForceLongPolling: true,
+  experimentalAutoDetectLongPolling: true
 });
+
+// Add connection state monitoring
+db.enableNetwork().catch(console.error);
