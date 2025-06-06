@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, getDb } from '../firebase';
 import { AppState } from '../types';
 import debounce from 'lodash/debounce';
 
@@ -30,6 +30,9 @@ Contact support if you need help enabling cloud sync.`);
 
 // Enhanced debounced save function with proper auth checks
 const debouncedSave = debounce(async (uid: string, saveData: any) => {
+  // Get database instance
+  const db = await getDb();
+  
   // Skip if no database or permissions denied
   if (!db || permissionDenied) {
     return;
@@ -159,6 +162,9 @@ export const saveUserData = async (uid: string, data: AppState): Promise<void> =
     return;
   }
 
+  // Get database instance
+  const db = await getDb();
+  
   if (!db) {
     console.warn('⚠️ Firestore not initialized, saving locally only');
     cacheData(data);
@@ -209,6 +215,9 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
     return loadCache();
   }
 
+  // Get database instance
+  const db = await getDb();
+  
   if (!db) {
     console.warn('⚠️ Firestore not initialized, using cache only');
     return loadCache();
@@ -399,7 +408,8 @@ export const cleanup = () => {
 };
 
 // Export function to check if cloud sync is available
-export const isCloudSyncAvailable = (): boolean => {
+export const isCloudSyncAvailable = async (): Promise<boolean> => {
+  const db = await getDb();
   return !permissionDenied && !!db && !!auth.currentUser;
 };
 

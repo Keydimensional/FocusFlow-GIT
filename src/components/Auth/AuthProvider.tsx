@@ -108,13 +108,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const checkCloudSyncAvailable = () => {
+    // Return a synchronous check for immediate UI updates
+    return !!user && !loading;
+  };
+
   const value = {
     user,
     loading,
     signOut,
     syncUserData,
     loadUserData: loadUserDataForUser,
-    isCloudSyncAvailable,
+    isCloudSyncAvailable: checkCloudSyncAvailable,
     retryCloudSync
   };
 
