@@ -82,10 +82,10 @@ export const Login: React.FC = () => {
       >
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            {isSignUp ? 'Create Your Account' : 'Welcome Back'}
+            {isSignUp ? 'Create Your Account' : 'Welcome to BrainBounce'}
           </h2>
           <p className="text-gray-600">
-            {isSignUp ? 'Join BrainBounce to start your productivity journey' : 'Sign in to continue to BrainBounce'}
+            {isSignUp ? 'Join BrainBounce to start your productivity journey' : 'Sign in or sign up to continue to BrainBounce'}
           </p>
         </div>
 

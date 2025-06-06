@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Timer, Play, Pause, RotateCcw, Settings, ArrowLeft } from 'lucide-react';
+import { Timer, Play, Pause, RotateCcw, Settings, ArrowLeft, Minimize2 } from 'lucide-react';
 import { FocusLock } from './FocusLock';
 import { playNotificationSound } from '../../utils/notifications';
 
@@ -27,11 +27,12 @@ export const FocusTimer: React.FC = () => {
       if (isBreak) {
         setTimeLeft(workTime);
         setIsBreak(false);
-        setIsFocusLocked(false); // Disable focus lock when break starts
+        setIsFocusLocked(false); // Exit focus lock when break ends
       } else {
         setTimeLeft(breakTime);
         setIsBreak(true);
         setIsRunning(true);
+        setIsFocusLocked(false); // Exit focus lock when work session ends
       }
     }
 
@@ -52,21 +53,28 @@ export const FocusTimer: React.FC = () => {
 
   const handlePlayPause = () => {
     if (!isBreak && !isRunning) {
+      // Starting a work session - offer focus mode
       setIsFocusLocked(true);
     }
     setIsRunning(!isRunning);
   };
 
   const handleExitFocus = () => {
+    // Exit focus mode but keep timer running
     setIsFocusLocked(false);
-    setIsRunning(false);
-    reset();
+    // Timer continues running in background
+  };
+
+  const handleEnterFocus = () => {
+    // Re-enter focus mode while timer is running
+    setIsFocusLocked(true);
   };
 
   const switchToWorkMode = () => {
     setIsBreak(false);
     setTimeLeft(workTime);
     setIsRunning(false);
+    setIsFocusLocked(false);
   };
 
   const progress = ((isBreak ? breakTime : workTime) - timeLeft) / (isBreak ? breakTime : workTime) * 100;
@@ -193,11 +201,30 @@ export const FocusTimer: React.FC = () => {
         >
           <RotateCcw className="w-6 h-6" />
         </button>
+        {/* Focus mode toggle button - only show during work sessions */}
+        {!isBreak && isRunning && !isFocusLocked && (
+          <button
+            onClick={handleEnterFocus}
+            className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200"
+            title="Enter Focus Mode"
+          >
+            <Minimize2 className="w-6 h-6" />
+          </button>
+        )}
       </div>
 
       <p className="text-center mt-4 text-sm text-gray-600">
         {isBreak ? 'Time for a break!' : 'Stay focused on your task'}
       </p>
+      
+      {/* Status indicator when timer is running in background */}
+      {isRunning && !isFocusLocked && !isBreak && (
+        <div className="mt-4 bg-blue-50 p-3 rounded-lg">
+          <p className="text-xs text-blue-700 text-center">
+            ⏱️ Timer running in background - click minimise button to enter focus mode
+          </p>
+        </div>
+      )}
       
       <div className="mt-4 bg-blue-50 p-3 rounded-lg">
         <p className="text-xs text-blue-700 text-center">
