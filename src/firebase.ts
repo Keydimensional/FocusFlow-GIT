@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, connectAuthEmulator } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDewpEed7Haz-Zxe_-dLOr7YNytaSdwNlg",
@@ -16,66 +16,49 @@ const app = initializeApp(firebaseConfig);
 // Initialize Auth with local persistence
 export const auth = getAuth(app);
 
-// Set persistence with error handling (no await at top level)
+// Set persistence with error handling
 setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error('Failed to set auth persistence:', error);
+  console.warn('Failed to set auth persistence:', error);
 });
 
-// Initialize Firestore with lazy loading and error handling
+// Simple Firestore initialization without complex caching
 let db: any = null;
 let dbInitialized = false;
-let dbInitPromise: Promise<any> | null = null;
 
-const initializeFirestoreAsync = async () => {
+const initializeFirestore = async () => {
   if (dbInitialized) return db;
-  if (dbInitPromise) return dbInitPromise;
-
-  dbInitPromise = (async () => {
-    try {
-      // Dynamic import to avoid top-level await
-      const { initializeFirestore, persistentLocalCache, persistentSingleTabManager } = await import('firebase/firestore');
-      
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentSingleTabManager({ forceOwnership: true })
-        }),
-        experimentalForceLongPolling: true,
-      });
-      
-      console.log('✅ Firestore initialized with persistent cache');
-    } catch (error) {
-      console.error('Failed to initialize Firestore with persistent cache:', error);
-      
-      // Fallback to default initialization
-      try {
-        const { getFirestore } = await import('firebase/firestore');
-        db = getFirestore(app);
-        console.log('✅ Firestore initialized with fallback method');
-      } catch (fallbackError) {
-        console.error('Failed to initialize Firestore fallback:', fallbackError);
-        db = null;
-      }
-    }
+  
+  try {
+    console.log('🔄 Initializing Firestore...');
     
+    // Use simple getFirestore for better compatibility
+    const { getFirestore, connectFirestoreEmulator } = await import('firebase/firestore');
+    db = getFirestore(app);
+    
+    console.log('✅ Firestore initialized successfully');
     dbInitialized = true;
     return db;
-  })();
-
-  return dbInitPromise;
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize Firestore:', error);
+    db = null;
+    dbInitialized = true;
+    return null;
+  }
 };
 
 // Export a function to get the database instance
 export const getDb = async () => {
   if (!dbInitialized) {
-    await initializeFirestoreAsync();
+    await initializeFirestore();
   }
   return db;
 };
 
-// Export db for backward compatibility, but it will be null initially
+// Export db for backward compatibility
 export { db };
 
-// Initialize Firestore when the module loads (but don't await it)
-initializeFirestoreAsync().catch(error => {
+// Initialize Firestore in background
+initializeFirestore().catch(error => {
   console.error('Background Firestore initialization failed:', error);
 });

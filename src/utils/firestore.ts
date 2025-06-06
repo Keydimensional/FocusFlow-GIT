@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, getDb } from '../firebase';
 import { AppState } from '../types';
 import debounce from 'lodash/debounce';
@@ -6,116 +6,47 @@ import debounce from 'lodash/debounce';
 const CACHE_KEY = 'focusflow_cache';
 let unsubscribeSnapshot: (() => void) | null = null;
 let memoryCache: { data: AppState; timestamp: number } | null = null;
-let permissionDenied = false;
-let permissionChecked = false;
-let showedPermissionAlert = false;
+let cloudSyncDisabled = false;
 
-// Show user-friendly alert for permission issues
-const showPermissionAlert = () => {
-  if (showedPermissionAlert) return;
-  showedPermissionAlert = true;
-  
-  if (typeof window !== 'undefined' && window.alert) {
-    setTimeout(() => {
-      alert(`🔒 Cloud Sync Unavailable
-
-Your data is being saved locally, but cloud sync is disabled.
-
-This usually means Firebase permissions need to be configured. Your app will continue to work normally with local storage.
-
-Contact support if you need help enabling cloud sync.`);
-    }, 1000);
-  }
-};
-
-// Enhanced debounced save function with proper auth checks
+// Simple debounced save function
 const debouncedSave = debounce(async (uid: string, saveData: any) => {
-  // Get database instance
-  const db = await getDb();
+  if (cloudSyncDisabled) return;
   
-  // Skip if no database or permissions denied
-  if (!db || permissionDenied) {
-    return;
-  }
-
-  // Verify user is still authenticated
-  if (!auth.currentUser || auth.currentUser.uid !== uid) {
-    console.warn('User not authenticated for save operation');
-    return;
-  }
-
-  const maxRetries = 3;
-  let retries = 0;
-  
-  const attemptSave = async (): Promise<void> => {
-    try {
-      const userDocRef = doc(db, 'users', uid);
-      
-      // Add server timestamp for conflict resolution
-      const dataWithTimestamp = {
-        ...saveData,
-        lastUpdated: serverTimestamp(),
-        clientTimestamp: Date.now()
-      };
-      
-      await setDoc(userDocRef, dataWithTimestamp, { merge: true });
-      console.log('✅ Firestore save successful');
-      
-      // Reset permission flags on successful save
-      permissionDenied = false;
-      
-    } catch (error: any) {
-      console.error('Firestore save error:', error);
-      
-      // Handle permission errors specifically
-      if (error.code === 'permission-denied' || 
-          error.message?.includes('Missing or insufficient permissions')) {
-        
-        if (!permissionDenied) {
-          console.error('❌ Permission denied - Firestore rules may not be configured correctly');
-          permissionDenied = true;
-          showPermissionAlert();
-        }
-        return; // Don't retry permission errors
-      }
-      
-      // Handle network/temporary errors with retry
-      if ((error.code === 'unavailable' || 
-           error.code === 'deadline-exceeded' || 
-           error.code === 'unauthenticated') && 
-          retries < maxRetries) {
-        
-        retries++;
-        const delay = Math.min(1000 * Math.pow(2, retries), 10000);
-        console.log(`🔄 Retrying save in ${delay}ms... (attempt ${retries}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return attemptSave();
-      }
-      
-      // For other errors, log but don't crash the app
-      console.error('💾 Firestore save failed, data saved locally only:', error.code || error.message);
+  try {
+    const db = await getDb();
+    if (!db || !auth.currentUser || auth.currentUser.uid !== uid) {
+      return;
     }
-  };
-  
-  return attemptSave();
-}, 2000);
+
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(userDocRef, {
+      ...saveData,
+      lastUpdated: new Date().toISOString(),
+      clientTimestamp: Date.now()
+    }, { merge: true });
+    
+    console.log('✅ Data synced to cloud');
+    
+  } catch (error: any) {
+    console.error('❌ Cloud sync failed:', error);
+    
+    if (error.code === 'permission-denied' || 
+        error.message?.includes('Missing or insufficient permissions')) {
+      cloudSyncDisabled = true;
+      console.warn('🔒 Cloud sync disabled due to permissions');
+    }
+  }
+}, 3000);
 
 const cacheData = (data: AppState) => {
-  const cache = {
-    data,
-    timestamp: Date.now()
-  };
+  const cache = { data, timestamp: Date.now() };
   
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    console.log('💾 Data cached to localStorage');
   } catch (e) {
-    console.warn('⚠️ localStorage failed, trying sessionStorage:', e);
     try {
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-      console.log('💾 Data cached to sessionStorage');
     } catch (e) {
-      console.warn('⚠️ sessionStorage failed, using memory cache:', e);
       memoryCache = cache;
     }
   }
@@ -129,25 +60,20 @@ const loadCache = (): AppState | null => {
     if (localData) {
       const { data, timestamp } = JSON.parse(localData);
       if (Date.now() - timestamp < MAX_CACHE_AGE) {
-        console.log('📱 Loaded data from localStorage cache');
         return data;
       }
     }
   } catch (e) {
-    console.warn('⚠️ Failed to load from localStorage:', e);
     try {
       const sessionData = sessionStorage.getItem(CACHE_KEY);
       if (sessionData) {
         const { data, timestamp } = JSON.parse(sessionData);
         if (Date.now() - timestamp < MAX_CACHE_AGE) {
-          console.log('📱 Loaded data from sessionStorage cache');
           return data;
         }
       }
     } catch (e) {
-      console.warn('⚠️ Failed to load from sessionStorage:', e);
       if (memoryCache && Date.now() - memoryCache.timestamp < MAX_CACHE_AGE) {
-        console.log('🧠 Loaded data from memory cache');
         return memoryCache.data;
       }
     }
@@ -157,75 +83,28 @@ const loadCache = (): AppState | null => {
 
 export const saveUserData = async (uid: string, data: AppState): Promise<void> => {
   if (!uid) {
-    console.error('❌ No user ID provided for save operation');
-    cacheData(data);
-    return;
-  }
-
-  // Get database instance
-  const db = await getDb();
-  
-  if (!db) {
-    console.warn('⚠️ Firestore not initialized, saving locally only');
-    cacheData(data);
-    return;
-  }
-
-  // Verify current user matches the UID
-  if (!auth.currentUser || auth.currentUser.uid !== uid) {
-    console.warn('⚠️ User authentication mismatch, saving locally only');
     cacheData(data);
     return;
   }
 
   try {
-    // Ensure data is serializable
-    const serializableData = JSON.parse(JSON.stringify(data));
-    
-    // Update cache immediately for responsive UI
-    cacheData(serializableData);
-    
-    // Save to Firestore with debouncing (will be skipped if permissions denied)
-    await debouncedSave(uid, serializableData);
-    
-  } catch (error: any) {
-    console.error('💾 Error in saveUserData:', error);
-    
-    // Handle permission errors specifically
-    if (error.code === 'permission-denied' || 
-        error.message?.includes('Missing or insufficient permissions')) {
-      
-      if (!permissionDenied) {
-        permissionDenied = true;
-        console.warn('🔒 Cloud sync disabled due to permission issues. Data saved locally only.');
-        showPermissionAlert();
-      }
-    }
-    
-    // Ensure data is cached even if Firestore save fails
+    // Always cache data first for immediate response
     cacheData(data);
     
-    // Don't throw error to prevent app crashes
+    // Try cloud sync if not disabled
+    if (!cloudSyncDisabled) {
+      await debouncedSave(uid, data);
+    }
+    
+  } catch (error) {
+    console.error('💾 Save error:', error);
+    // Ensure data is cached even if cloud sync fails
+    cacheData(data);
   }
 };
 
 export const loadUserData = async (uid: string): Promise<AppState | null> => {
   if (!uid) {
-    console.error('❌ No user ID provided for load operation');
-    return loadCache();
-  }
-
-  // Get database instance
-  const db = await getDb();
-  
-  if (!db) {
-    console.warn('⚠️ Firestore not initialized, using cache only');
-    return loadCache();
-  }
-
-  // Verify current user matches the UID
-  if (!auth.currentUser || auth.currentUser.uid !== uid) {
-    console.warn('⚠️ User authentication mismatch, using cache only');
     return loadCache();
   }
 
@@ -235,150 +114,71 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
     unsubscribeSnapshot = null;
   }
 
-  // If permissions are denied, just return cached data
-  if (permissionDenied) {
-    console.log('🔒 Using cache due to permission restrictions');
+  // Return cached data immediately if cloud sync is disabled
+  if (cloudSyncDisabled) {
     return loadCache();
   }
 
   try {
+    const db = await getDb();
+    if (!db || !auth.currentUser || auth.currentUser.uid !== uid) {
+      return loadCache();
+    }
+
     const userDocRef = doc(db, 'users', uid);
     
-    // Set up real-time sync with enhanced error handling
-    unsubscribeSnapshot = onSnapshot(
-      userDocRef,
-      {
-        next: (doc) => {
-          if (doc.exists()) {
-            const data = doc.data() as AppState;
-            console.log('🔄 Real-time data update received');
-            cacheData(data);
-            // Reset permission flag on successful read
-            permissionDenied = false;
-          }
-        },
-        error: (error) => {
-          console.error('🔄 Real-time sync error:', error);
-          
-          // Handle permission errors
-          if (error.code === 'permission-denied' || 
-              error.message?.includes('Missing or insufficient permissions')) {
-            
-            if (!permissionDenied) {
-              console.warn('🔒 Real-time sync disabled due to permission issues');
-              permissionDenied = true;
-              showPermissionAlert();
-            }
-          }
-          
-          // Don't throw error, just log it
-        }
-      }
-    );
+    // Set up real-time sync with timeout
+    const syncPromise = new Promise<AppState | null>((resolve) => {
+      const timeout = setTimeout(() => {
+        console.warn('⏰ Cloud sync timeout, using cached data');
+        resolve(loadCache());
+      }, 5000); // 5 second timeout
 
-    // Try cache first for faster loading
+      unsubscribeSnapshot = onSnapshot(
+        userDocRef,
+        {
+          next: (doc) => {
+            clearTimeout(timeout);
+            if (doc.exists()) {
+              const data = doc.data() as AppState;
+              cacheData(data);
+              resolve(data);
+            } else {
+              resolve(loadCache());
+            }
+          },
+          error: (error) => {
+            clearTimeout(timeout);
+            console.error('🔄 Real-time sync error:', error);
+            
+            if (error.code === 'permission-denied') {
+              cloudSyncDisabled = true;
+            }
+            
+            resolve(loadCache());
+          }
+        }
+      );
+    });
+
+    // Try cache first for immediate response
     const cached = loadCache();
     if (cached) {
-      console.log('⚡ Using cached data for immediate load');
-      
-      // Still try to load from Firestore in background (unless permissions denied)
-      if (!permissionDenied) {
-        setTimeout(async () => {
-          try {
-            const docSnap = await getDoc(userDocRef);
-            if (docSnap.exists()) {
-              const firestoreData = docSnap.data() as AppState;
-              // Only update cache if Firestore data is newer
-              const firestoreTime = firestoreData.clientTimestamp || 0;
-              const cachedTime = cached.clientTimestamp || 0;
-              
-              if (firestoreTime > cachedTime) {
-                console.log('🔄 Updated with newer Firestore data');
-                cacheData(firestoreData);
-              }
-            }
-          } catch (error: any) {
-            if (error.code === 'permission-denied' || 
-                error.message?.includes('Missing or insufficient permissions')) {
-              if (!permissionDenied) {
-                permissionDenied = true;
-                showPermissionAlert();
-              }
-            }
-            // Silently handle background load failures
-          }
-        }, 100);
-      }
-      
+      // Return cached data immediately, but still set up sync in background
+      syncPromise.catch(() => {}); // Ignore sync errors
       return cached;
     }
 
-    // Load from Firestore with retries
-    const maxRetries = 3;
-    let retries = 0;
+    // If no cache, wait for sync (with timeout)
+    return await syncPromise;
     
-    const attemptLoad = async (): Promise<AppState | null> => {
-      try {
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data() as AppState;
-          console.log('☁️ Loaded data from Firestore');
-          cacheData(data);
-          // Reset permission flag on successful read
-          permissionDenied = false;
-          return data;
-        }
-        console.log('📄 No document found in Firestore');
-        return null;
-      } catch (error: any) {
-        console.error('☁️ Firestore load error:', error);
-        
-        // Handle permission errors
-        if (error.code === 'permission-denied' || 
-            error.message?.includes('Missing or insufficient permissions')) {
-          
-          if (!permissionDenied) {
-            console.warn('🔒 Firestore access denied - using local storage only');
-            permissionDenied = true;
-            showPermissionAlert();
-          }
-          return loadCache();
-        }
-        
-        // Handle network/temporary errors with retry
-        if ((error.code === 'unavailable' || 
-             error.code === 'deadline-exceeded' || 
-             error.code === 'unauthenticated') && 
-            retries < maxRetries) {
-          
-          retries++;
-          const delay = Math.min(1000 * Math.pow(2, retries), 5000);
-          console.log(`🔄 Retrying load in ${delay}ms... (attempt ${retries}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          return attemptLoad();
-        }
-        
-        throw error;
-      }
-    };
+  } catch (error) {
+    console.error('💾 Load error:', error);
     
-    return await attemptLoad();
-    
-  } catch (error: any) {
-    console.error('💾 Error loading user data:', error);
-    
-    // Handle permission errors
-    if (error.code === 'permission-denied' || 
-        error.message?.includes('Missing or insufficient permissions')) {
-      
-      if (!permissionDenied) {
-        permissionDenied = true;
-        console.warn('🔒 Cloud sync disabled due to permission issues. Using local storage only.');
-        showPermissionAlert();
-      }
+    if (error.code === 'permission-denied') {
+      cloudSyncDisabled = true;
     }
     
-    // Return cached data as fallback
     return loadCache();
   }
 };
@@ -389,10 +189,7 @@ export const cleanup = () => {
     unsubscribeSnapshot = null;
   }
   
-  // Reset permission flags
-  permissionDenied = false;
-  permissionChecked = false;
-  showedPermissionAlert = false;
+  cloudSyncDisabled = false;
   
   try {
     localStorage.removeItem(CACHE_KEY);
@@ -403,19 +200,20 @@ export const cleanup = () => {
       memoryCache = null;
     }
   }
-  
-  console.log('🧹 Firestore cleanup completed');
 };
 
-// Export function to check if cloud sync is available
 export const isCloudSyncAvailable = async (): Promise<boolean> => {
-  const db = await getDb();
-  return !permissionDenied && !!db && !!auth.currentUser;
+  if (cloudSyncDisabled) return false;
+  
+  try {
+    const db = await getDb();
+    return !!db && !!auth.currentUser;
+  } catch {
+    return false;
+  }
 };
 
-// Export function to retry cloud sync
 export const retryCloudSync = () => {
-  permissionDenied = false;
-  showedPermissionAlert = false;
+  cloudSyncDisabled = false;
   console.log('🔄 Cloud sync retry enabled');
 };

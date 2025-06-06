@@ -5,9 +5,10 @@ export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
+    include: ['firebase/app', 'firebase/auth', 'firebase/firestore']
   },
   build: {
-    target: 'es2020', // Changed from default to support more modern features while maintaining compatibility
+    target: 'es2020',
     sourcemap: true,
     rollupOptions: {
       output: {
@@ -21,6 +22,14 @@ export default defineConfig({
     }
   },
   esbuild: {
-    target: 'es2020' // Ensure esbuild also targets es2020
+    target: 'es2020'
+  },
+  server: {
+    host: true,
+    port: 5173
+  },
+  preview: {
+    host: true,
+    port: 4173
   }
 });

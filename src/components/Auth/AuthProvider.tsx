@@ -20,30 +20,37 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cloudSyncAvailable, setCloudSyncAvailable] = useState(false);
 
   useEffect(() => {
     console.log('🔐 Setting up auth state listener');
     
     const unsubscribe = onAuthStateChanged(
       auth, 
-      (user) => {
+      async (user) => {
         console.log('🔐 Auth state changed:', user ? `signed in as ${user.email}` : 'signed out');
         setUser(user);
-        setLoading(false);
         
-        if (!user) {
-          // Clean up when user signs out
+        if (user) {
+          // Check cloud sync availability
+          try {
+            const available = await isCloudSyncAvailable();
+            setCloudSyncAvailable(available);
+          } catch (error) {
+            console.warn('⚠️ Could not check cloud sync availability:', error);
+            setCloudSyncAvailable(false);
+          }
+        } else {
+          setCloudSyncAvailable(false);
           cleanup();
         }
+        
+        setLoading(false);
       },
       (error) => {
         console.error('🔐 Auth state change error:', error);
         setLoading(false);
-        
-        // Show user-friendly error message
-        if (error.code === 'auth/network-request-failed') {
-          console.warn('⚠️ Network error during authentication. App will work offline.');
-        }
+        setCloudSyncAvailable(false);
       }
     );
 
@@ -58,17 +65,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🔐 Signing out user');
       await auth.signOut();
       cleanup();
+      setCloudSyncAvailable(false);
       console.log('✅ Sign out successful');
     } catch (error: any) {
       console.error('❌ Sign out error:', error);
-      
-      // Even if sign out fails, clean up local state
+      // Clean up local state even if sign out fails
       cleanup();
-      
-      // Show user-friendly error
-      if (error.code === 'auth/network-request-failed') {
-        console.warn('⚠️ Network error during sign out. Local session cleared.');
-      }
+      setCloudSyncAvailable(false);
     }
   };
 
@@ -82,7 +85,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await saveUserData(user.uid, data);
     } catch (error) {
       console.error('💾 Failed to sync user data:', error);
-      // Don't throw error to prevent app crashes
     }
   };
 
@@ -103,14 +105,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('❌ Failed to load user data:', error);
-      // Fallback to local storage
       return loadState();
     }
   };
 
   const checkCloudSyncAvailable = () => {
-    // Return a synchronous check for immediate UI updates
-    return !!user && !loading;
+    return cloudSyncAvailable && !!user && !loading;
+  };
+
+  const handleRetryCloudSync = async () => {
+    retryCloudSync();
+    
+    if (user) {
+      try {
+        const available = await isCloudSyncAvailable();
+        setCloudSyncAvailable(available);
+      } catch (error) {
+        console.warn('⚠️ Cloud sync retry failed:', error);
+        setCloudSyncAvailable(false);
+      }
+    }
   };
 
   const value = {
@@ -120,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     syncUserData,
     loadUserData: loadUserDataForUser,
     isCloudSyncAvailable: checkCloudSyncAvailable,
-    retryCloudSync
+    retryCloudSync: handleRetryCloudSync
   };
 
   return (
