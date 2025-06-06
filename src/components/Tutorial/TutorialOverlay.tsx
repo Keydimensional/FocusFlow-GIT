@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../Auth/AuthProvider';
 
 const steps = [
   {
@@ -29,20 +30,51 @@ const steps = [
   }
 ];
 
-export const TutorialOverlay: React.FC = () => {
+interface TutorialOverlayProps {
+  forceShow?: boolean;
+  onComplete?: () => void;
+}
+
+export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ forceShow = false, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
-    if (hasSeenTutorial) {
-      setShowTutorial(false);
+    if (forceShow) {
+      setShowTutorial(true);
+      setCurrentStep(0);
+      return;
     }
-  }, []);
+
+    // Only show tutorial for new users who haven't seen it
+    if (user) {
+      const tutorialKey = `hasSeenTutorial_${user.uid}`;
+      const hasSeenTutorial = localStorage.getItem(tutorialKey);
+      
+      if (!hasSeenTutorial) {
+        // Check if this is a new user (account created recently)
+        const accountAge = Date.now() - new Date(user.metadata.creationTime || 0).getTime();
+        const isNewUser = accountAge < 10 * 60 * 1000; // 10 minutes
+        
+        if (isNewUser) {
+          setShowTutorial(true);
+        }
+      }
+    }
+  }, [user, forceShow]);
 
   const handleComplete = () => {
-    localStorage.setItem('hasSeenTutorial', 'true');
+    if (user && !forceShow) {
+      const tutorialKey = `hasSeenTutorial_${user.uid}`;
+      localStorage.setItem(tutorialKey, 'true');
+    }
+    
     setShowTutorial(false);
+    
+    if (onComplete) {
+      onComplete();
+    }
   };
 
   if (!showTutorial) return null;

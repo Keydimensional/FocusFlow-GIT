@@ -5,6 +5,7 @@ import { ReminderForm } from './ReminderForm';
 import { ReminderPopup } from './ReminderPopup';
 import { Bell, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { trySendNotification } from '../../utils/notifications';
 
 interface ReminderListProps {
   reminders: Reminder[];
@@ -22,11 +23,6 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
 
   useEffect(() => {
-    // Request notification permission on component mount
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
     // Clear existing timeouts when reminders change
     activeTimeouts.forEach(timeout => clearTimeout(timeout));
     setActiveTimeouts([]);
@@ -57,13 +53,14 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
               });
             }
 
-            // Show notification
-            if (Notification.permission === 'granted') {
-              new Notification('Reminder!', {
-                body: reminder.title,
-                icon: '/vite.svg',
-                silent: true // We're handling the sound separately
-              });
+            // Try to show browser notification (safe for iOS)
+            const notificationSent = trySendNotification('Reminder!', {
+              body: reminder.title,
+              icon: '/vite.svg'
+            });
+
+            if (!notificationSent) {
+              console.log('📱 Browser notification not available, showing in-app popup only');
             }
 
             // Show in-app popup

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Volume2, VolumeX } from 'lucide-react';
+import { requestNotificationPermission, isNotificationSupported } from '../../utils/notifications';
 
 interface ReminderFormProps {
   onComplete: () => void;
@@ -32,9 +33,9 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
       return;
     }
 
-    // Request notification permission if not granted
-    if (Notification.permission === 'default') {
-      await Notification.requestPermission();
+    // Request notification permission if supported and not granted
+    if (isNotificationSupported()) {
+      await requestNotificationPermission();
     }
 
     const reminder = {
@@ -132,6 +133,12 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
               </button>
             ))}
           </div>
+        )}
+
+        {!isNotificationSupported() && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+            ⚠️ Browser notifications are not supported on this device. You'll only hear the sound alert.
+          </p>
         )}
       </div>
 

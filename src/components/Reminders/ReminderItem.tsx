@@ -3,6 +3,7 @@ import { Reminder } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { requestNotificationPermission, isNotificationSupported } from '../../utils/notifications';
 
 interface ReminderItemProps {
   reminder: Reminder;
@@ -33,8 +34,13 @@ export const ReminderItem: React.FC<ReminderItemProps> = ({ reminder }) => {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim() || !datetime) return;
+    
+    // Request notification permission if supported and not granted
+    if (isNotificationSupported()) {
+      await requestNotificationPermission();
+    }
     
     updateReminder(reminder.id, {
       title: title.trim(),
@@ -152,6 +158,12 @@ export const ReminderItem: React.FC<ReminderItemProps> = ({ reminder }) => {
                   </button>
                 ))}
               </div>
+            )}
+
+            {!isNotificationSupported() && (
+              <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                ⚠️ Browser notifications are not supported on this device. You'll only hear the sound alert.
+              </p>
             )}
           </div>
 
