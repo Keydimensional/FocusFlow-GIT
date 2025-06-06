@@ -65,4 +65,6 @@ export interface AppState {
   todaysFocus: DailyFocus | null;
   brainDump: BrainDumpItem[];
   widgets: Widget[];
+  lastUpdated?: string;
+  clientTimestamp?: number;
 }

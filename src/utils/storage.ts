@@ -27,22 +27,48 @@ const defaultState: AppState = {
 
 export const saveState = (state: AppState): void => {
   try {
+    // Check if localStorage is available
+    if (typeof Storage === 'undefined') {
+      console.warn('localStorage not available');
+      return;
+    }
+
     const serializedState = JSON.stringify(state);
     localStorage.setItem(STORAGE_KEY, serializedState);
+    console.log('State saved successfully');
   } catch (error) {
     console.error('Failed to save state:', error);
+    
+    // Try to clear some space and retry
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      const serializedState = JSON.stringify(state);
+      localStorage.setItem(STORAGE_KEY, serializedState);
+      console.log('State saved successfully after clearing');
+    } catch (retryError) {
+      console.error('Failed to save state even after clearing:', retryError);
+    }
   }
 };
 
 export const loadState = (): AppState => {
   try {
+    // Check if localStorage is available
+    if (typeof Storage === 'undefined') {
+      console.warn('localStorage not available, using default state');
+      return defaultState;
+    }
+
     const serializedState = localStorage.getItem(STORAGE_KEY);
-    if (!serializedState) return defaultState;
+    if (!serializedState) {
+      console.log('No saved state found, using default state');
+      return defaultState;
+    }
 
     const parsedState = JSON.parse(serializedState);
     
     // Validate and merge with default state to ensure all properties exist
-    return {
+    const mergedState = {
       ...defaultState,
       ...parsedState,
       // Ensure arrays are valid
@@ -53,8 +79,20 @@ export const loadState = (): AppState => {
       brainDump: Array.isArray(parsedState.brainDump) ? parsedState.brainDump : defaultState.brainDump,
       widgets: Array.isArray(parsedState.widgets) ? parsedState.widgets : defaultState.widgets,
     };
+
+    console.log('State loaded successfully');
+    return mergedState;
   } catch (error) {
     console.error('Failed to load state:', error);
+    
+    // Try to clear corrupted data and return default state
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      console.log('Cleared corrupted state, using default state');
+    } catch (clearError) {
+      console.error('Failed to clear corrupted state:', clearError);
+    }
+    
     return defaultState;
   }
 };

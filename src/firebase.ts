@@ -16,12 +16,30 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Auth with local persistence
 export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-// Initialize Firestore with persistent cache
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager({ forceOwnership: true })
-  }),
-  experimentalForceLongPolling: true,
+// Set persistence with error handling
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Failed to set auth persistence:', error);
 });
+
+// Initialize Firestore with persistent cache and error handling
+let db: any;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentSingleTabManager({ forceOwnership: true })
+    }),
+    experimentalForceLongPolling: true,
+  });
+} catch (error) {
+  console.error('Failed to initialize Firestore with persistent cache:', error);
+  // Fallback to default initialization
+  try {
+    const { getFirestore } = await import('firebase/firestore');
+    db = getFirestore(app);
+  } catch (fallbackError) {
+    console.error('Failed to initialize Firestore fallback:', fallbackError);
+  }
+}
+
+export { db };

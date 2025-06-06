@@ -17,7 +17,6 @@ export const MoodCheck: React.FC = () => {
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
   const [reflection, setReflection] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [showWarning, setShowWarning] = useState(false);
   
   const todaysMood = moods.find(mood => {
     const moodDate = new Date(mood.date.split('/').reverse().join('-'));
@@ -27,65 +26,46 @@ export const MoodCheck: React.FC = () => {
 
   const handleMoodSelect = (mood: Mood) => {
     if (todaysMood) {
-      setShowWarning(true);
-      return;
+      // If there's already a mood for today, start editing it
+      setSelectedMood(mood);
+      setReflection(todaysMood.reflection || '');
+      setIsEditing(true);
+    } else {
+      // No mood for today, create new one
+      setSelectedMood(mood);
+      setReflection('');
+      setIsEditing(false);
     }
-    setSelectedMood(mood);
   };
 
   const handleSubmit = () => {
     if (!selectedMood) return;
     
-    if (isEditing && todaysMood) {
+    if (todaysMood) {
+      // Update existing mood
       updateMood(todaysMood.date, selectedMood, reflection);
     } else {
+      // Add new mood
       addMood(selectedMood, reflection);
     }
     
     setSelectedMood(null);
     setReflection('');
     setIsEditing(false);
-    setShowWarning(false);
   };
 
   const handleCancel = () => {
     setSelectedMood(null);
     setReflection('');
     setIsEditing(false);
-    setShowWarning(false);
   };
 
-  if (showWarning) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-lg shadow-sm p-6"
-      >
-        <h3 className="text-lg font-medium mb-4">You've already logged your mood today</h3>
-        <p className="text-gray-600 mb-6">Would you like to edit your earlier entry?</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => setShowWarning(false)}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              setIsEditing(true);
-              setSelectedMood(todaysMood.mood);
-              setReflection(todaysMood.reflection || '');
-              setShowWarning(false);
-            }}
-            className="px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
-          >
-            Edit Entry
-          </button>
-        </div>
-      </motion.div>
-    );
-  }
+  const handleEditExisting = () => {
+    if (!todaysMood) return;
+    setSelectedMood(todaysMood.mood);
+    setReflection(todaysMood.reflection || '');
+    setIsEditing(true);
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
@@ -107,12 +87,35 @@ export const MoodCheck: React.FC = () => {
               </button>
             ))}
           </div>
+          
+          {todaysMood && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">
+                    Today's mood: <span className="font-medium">{moodConfig[todaysMood.mood].label}</span>
+                  </p>
+                  {todaysMood.reflection && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Reflection: <span className="italic">"{todaysMood.reflection}"</span>
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={handleEditExisting}
+                  className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-              {isEditing ? 'Edit Your Mood Entry' : 'Add Your Thoughts'}
+              {todaysMood ? 'Update Your Mood Entry' : 'Add Your Thoughts'}
             </h2>
             <button
               onClick={handleCancel}
@@ -154,22 +157,9 @@ export const MoodCheck: React.FC = () => {
               onClick={handleSubmit}
               className="px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors duration-200"
             >
-              {isEditing ? 'Update Entry' : 'Save Entry'}
+              {todaysMood ? 'Update Entry' : 'Save Entry'}
             </button>
           </div>
-        </div>
-      )}
-
-      {todaysMood && !selectedMood && !showWarning && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600">
-            Today's mood: <span className="font-medium">{moodConfig[todaysMood.mood].label}</span>
-          </p>
-          {todaysMood.reflection && (
-            <p className="text-sm text-gray-600 mt-1">
-              Reflection: <span className="italic">{todaysMood.reflection}</span>
-            </p>
-          )}
         </div>
       )}
     </div>

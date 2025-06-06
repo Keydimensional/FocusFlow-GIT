@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const steps = [
   {
-    title: 'Welcome to FocusFlow! 🌟',
+    title: 'Welcome to BrainBounce! 🌟',
     content: 'Your personal productivity companion designed specifically for ADHD minds. Let\'s explore the key features that will help you stay organised and focused.',
   },
   {
