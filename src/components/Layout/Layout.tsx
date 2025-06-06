@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SunMedium, Settings, LogOut, User, ChevronDown, AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { SunMedium, Settings, LogOut, User, ChevronDown, AlertTriangle, RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
 import { SettingsModal } from '../Settings/SettingsModal';
 import { HeroSection } from './HeroSection';
+import { ToastNotification } from './ToastNotification';
 import { useAuth } from '../Auth/AuthProvider';
 import { useApp } from '../../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { setToastHandler, getRetryQueueSize } from '../../utils/firestore';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,9 +15,22 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [retryQueueSize, setRetryQueueSize] = useState(0);
   const { user, signOut } = useAuth();
   const { isCloudSyncAvailable, retryCloudSync, dataLoadError, retryDataLoad } = useApp();
   const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  // Update retry queue size periodically
+  useEffect(() => {
+    const updateQueueSize = () => {
+      setRetryQueueSize(getRetryQueueSize());
+    };
+
+    updateQueueSize();
+    const interval = setInterval(updateQueueSize, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Close account menu when clicking outside
   useEffect(() => {
@@ -53,8 +68,38 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     return name.charAt(0).toUpperCase();
   };
 
+  const getSyncStatusInfo = () => {
+    if (!user) return { icon: null, text: '', color: '' };
+    
+    if (retryQueueSize > 0) {
+      return {
+        icon: <Clock className="w-4 h-4" />,
+        text: `${retryQueueSize} pending sync${retryQueueSize > 1 ? 's' : ''}`,
+        color: 'text-yellow-600'
+      };
+    }
+    
+    if (isCloudSyncAvailable) {
+      return {
+        icon: <Wifi className="w-4 h-4" />,
+        text: 'Cloud sync active',
+        color: 'text-green-600'
+      };
+    }
+    
+    return {
+      icon: <WifiOff className="w-4 h-4" />,
+      text: 'Local storage only',
+      color: 'text-gray-400'
+    };
+  };
+
+  const syncStatus = getSyncStatusInfo();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50">
+      <ToastNotification onToastHandler={setToastHandler} />
+      
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
@@ -63,16 +108,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <h1 className="text-xl font-semibold text-gray-800">BrainBounce</h1>
               
               {/* Cloud sync status indicator */}
-              {user && (
-                <div className="ml-3 flex items-center">
-                  {isCloudSyncAvailable ? (
-                    <div className="flex items-center text-green-600\" title="Cloud sync active">
-                      <Wifi className="w-4 h-4" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-gray-400" title="Local storage only">
-                      <WifiOff className="w-4 h-4" />
-                    </div>
+              {user && syncStatus.icon && (
+                <div className={`ml-3 flex items-center ${syncStatus.color}`} title={syncStatus.text}>
+                  {syncStatus.icon}
+                  {retryQueueSize > 0 && (
+                    <span className="ml-1 text-xs font-medium">
+                      {retryQueueSize}
+                    </span>
                   )}
                 </div>
               )}
@@ -109,15 +151,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <p className="font-medium text-gray-900 truncate">{getDisplayName()}</p>
                             <p className="text-sm text-gray-500 truncate">{user.email}</p>
                             <div className="flex items-center gap-1 mt-1">
-                              {isCloudSyncAvailable ? (
+                              {syncStatus.icon && (
                                 <>
-                                  <Wifi className="w-3 h-3 text-green-600" />
-                                  <span className="text-xs text-green-600">Cloud sync active</span>
-                                </>
-                              ) : (
-                                <>
-                                  <WifiOff className="w-3 h-3 text-gray-400" />
-                                  <span className="text-xs text-gray-500">Local storage only</span>
+                                  <span className={syncStatus.color}>{syncStatus.icon}</span>
+                                  <span className={`text-xs ${syncStatus.color}`}>
+                                    {syncStatus.text}
+                                  </span>
                                 </>
                               )}
                             </div>
@@ -126,7 +165,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       </div>
                       
                       <div className="py-1">
-                        {!isCloudSyncAvailable && (
+                        {(!isCloudSyncAvailable || retryQueueSize > 0) && (
                           <button
                             onClick={() => {
                               retryCloudSync();
@@ -135,7 +174,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             className="flex items-center gap-3 w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors"
                           >
                             <RefreshCw className="w-4 h-4" />
-                            Retry Cloud Sync
+                            {retryQueueSize > 0 ? `Retry Sync (${retryQueueSize} pending)` : 'Retry Cloud Sync'}
                           </button>
                         )}
                         

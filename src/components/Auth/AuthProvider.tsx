@@ -12,7 +12,7 @@ interface AuthContextType {
   syncUserData: (data: AppState) => Promise<void>;
   loadUserData: () => Promise<AppState | null>;
   isCloudSyncAvailable: () => boolean;
-  retryCloudSync: () => void;
+  retryCloudSync: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -32,10 +32,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(user);
         
         if (user) {
-          // Check cloud sync availability
+          // Check cloud sync availability with timeout
           try {
-            const available = await isCloudSyncAvailable();
+            const checkSyncPromise = isCloudSyncAvailable();
+            const timeoutPromise = new Promise<boolean>((resolve) => {
+              setTimeout(() => resolve(false), 5000); // 5 second timeout
+            });
+            
+            const available = await Promise.race([checkSyncPromise, timeoutPromise]);
             setCloudSyncAvailable(available);
+            
+            if (!available) {
+              console.warn('⚠️ Cloud sync not available, using local storage');
+            } else {
+              console.log('✅ Cloud sync available');
+            }
           } catch (error) {
             console.warn('⚠️ Could not check cloud sync availability:', error);
             setCloudSyncAvailable(false);
@@ -72,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clean up local state even if sign out fails
       cleanup();
       setCloudSyncAvailable(false);
+      throw error;
     }
   };
 
@@ -85,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await saveUserData(user.uid, data);
     } catch (error) {
       console.error('💾 Failed to sync user data:', error);
+      // Don't throw error as local save should have succeeded
     }
   };
 
@@ -113,17 +126,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return cloudSyncAvailable && !!user && !loading;
   };
 
-  const handleRetryCloudSync = async () => {
-    retryCloudSync();
+  const handleRetryCloudSync = async (): Promise<boolean> => {
+    if (!user) return false;
     
-    if (user) {
-      try {
+    try {
+      const success = await retryCloudSync();
+      
+      if (success) {
+        // Re-check availability after successful retry
         const available = await isCloudSyncAvailable();
         setCloudSyncAvailable(available);
-      } catch (error) {
-        console.warn('⚠️ Cloud sync retry failed:', error);
-        setCloudSyncAvailable(false);
+        return available;
       }
+      
+      return false;
+    } catch (error) {
+      console.warn('⚠️ Cloud sync retry failed:', error);
+      setCloudSyncAvailable(false);
+      return false;
     }
   };
 

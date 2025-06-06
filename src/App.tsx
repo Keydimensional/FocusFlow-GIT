@@ -6,7 +6,7 @@ import { Login } from './components/Auth/Login';
 import { FinishSignIn } from './components/Auth/FinishSignIn';
 import { UsernamePrompt } from './components/Auth/UsernamePrompt';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 import { TutorialOverlay } from './components/Tutorial/TutorialOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
@@ -65,15 +65,34 @@ const AppContent: React.FC = () => {
 
   return (
     <AppProvider>
-      <Layout>
-        <Dashboard />
-        <TutorialOverlay />
-      </Layout>
+      <AppContentWithTutorial />
       
       {showUsernamePrompt && (
         <UsernamePrompt onComplete={handleUsernameComplete} />
       )}
     </AppProvider>
+  );
+};
+
+// Separate component to access AppContext
+const AppContentWithTutorial: React.FC = () => {
+  const { showTutorial, setShowTutorial } = useApp();
+
+  return (
+    <>
+      <Layout>
+        <Dashboard />
+      </Layout>
+      
+      {/* Tutorial Overlay - now properly connected to global state */}
+      <TutorialOverlay 
+        forceShow={showTutorial}
+        onComplete={() => {
+          console.log('🎓 Tutorial completed');
+          setShowTutorial(false);
+        }}
+      />
+    </>
   );
 };
 

@@ -1,68 +1,45 @@
 // Safe notification utility for cross-platform compatibility
-export const trySendNotification = (title: string, options?: NotificationOptions): boolean => {
-  // Check if Notification API is available
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    console.warn('Notifications not supported on this device');
-    return false;
-  }
+// This file now only handles in-app notifications, no browser notifications
 
-  try {
-    // Check permission status
-    if (Notification.permission === 'granted') {
-      new Notification(title, {
-        icon: '/vite.svg',
-        silent: true, // We handle sound separately
-        ...options
-      });
-      return true;
-    } else if (Notification.permission === 'default') {
-      // Request permission but don't block
-      Notification.requestPermission().then(permission => {
-        if (permission === 'granted') {
-          new Notification(title, {
-            icon: '/vite.svg',
-            silent: true,
-            ...options
-          });
-        }
-      }).catch(error => {
-        console.warn('Failed to request notification permission:', error);
-      });
-      return false;
-    } else {
-      console.warn('Notification permission denied');
-      return false;
-    }
-  } catch (error) {
-    console.warn('Failed to send notification:', error);
-    return false;
-  }
+export const trySendNotification = (title: string, options?: any): boolean => {
+  // Always return false since we're not using browser notifications
+  console.log('📱 In-app notification:', title, options?.body || '');
+  return false;
 };
 
-export const requestNotificationPermission = async (): Promise<NotificationPermission | null> => {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    console.warn('Notifications not supported on this device');
-    return null;
-  }
-
-  try {
-    if (Notification.permission === 'default') {
-      return await Notification.requestPermission();
-    }
-    return Notification.permission;
-  } catch (error) {
-    console.warn('Failed to request notification permission:', error);
-    return null;
-  }
+export const requestNotificationPermission = async (): Promise<null> => {
+  // No longer requesting browser notification permissions
+  console.log('📱 Browser notifications disabled - using in-app notifications only');
+  return null;
 };
 
 export const isNotificationSupported = (): boolean => {
-  return typeof window !== 'undefined' && 'Notification' in window;
+  // Always return false since we're not using browser notifications
+  return false;
 };
 
-export const getNotificationPermission = (): NotificationPermission | null => {
-  if (!isNotificationSupported()) {
-    return null;
+export const getNotificationPermission = (): null => {
+  // No browser notification permissions needed
+  return null;
+};
+
+// Play notification sound utility
+export const playNotificationSound = (soundType: 'gentle' | 'chime' = 'gentle'): void => {
+  const SOUND_OPTIONS = {
+    gentle: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+    chime: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
+  };
+
+  try {
+    const audio = new Audio(SOUND_OPTIONS[soundType]);
+    audio.volume = 0.5;
+    audio.load();
+    audio.addEventListener('canplaythrough', () => {
+      audio.play().catch(error => {
+        console.warn('Failed to play notification sound:', error);
+      });
+    });
+  } catch (error) {
+    console.warn('Failed to create notification sound:', error);
   }
-  return Notification.permission;
 };

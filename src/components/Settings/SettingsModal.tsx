@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
@@ -7,7 +7,6 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../Auth/AuthProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Widget } from '../../types';
-import { TutorialOverlay } from '../Tutorial/TutorialOverlay';
 import { UsernameEditor } from './UsernameEditor';
 
 const widgetNames: Record<string, string> = {
@@ -28,10 +27,9 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
-  const { widgets, updateWidgetOrder, toggleWidget, resetWidgets } = useApp();
+  const { widgets, updateWidgetOrder, toggleWidget, resetWidgets, setShowTutorial } = useApp();
   const { user } = useAuth();
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [showUsernameEditor, setShowUsernameEditor] = useState(false);
+  const [showUsernameEditor, setShowUsernameEditor] = React.useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -73,6 +71,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const getInitials = () => {
     const name = getDisplayName();
     return name.charAt(0).toUpperCase();
+  };
+
+  const handleShowTutorial = () => {
+    console.log('🎓 Show tutorial button clicked');
+    setShowTutorial(true);
+    onClose(); // Close settings modal
   };
 
   return (
@@ -134,10 +138,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <h3 className="text-lg font-medium text-gray-800">Help</h3>
                 
                 <button
-                  onClick={() => {
-                    setShowTutorial(true);
-                    onClose();
-                  }}
+                  onClick={handleShowTutorial}
                   className="flex items-center gap-3 w-full p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <BookOpen className="w-5 h-5 text-purple-600" />
@@ -191,14 +192,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           </motion.div>
         </motion.div>
       </AnimatePresence>
-
-      {/* Tutorial Overlay */}
-      {showTutorial && (
-        <TutorialOverlay 
-          forceShow={true}
-          onComplete={() => setShowTutorial(false)}
-        />
-      )}
 
       {/* Username Editor */}
       {showUsernameEditor && (

@@ -1,16 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Volume2, VolumeX } from 'lucide-react';
-import { requestNotificationPermission, isNotificationSupported } from '../../utils/notifications';
 
 interface ReminderFormProps {
   onComplete: () => void;
 }
-
-const SOUND_OPTIONS = {
-  gentle: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-  chime: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
-};
 
 export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
   const { addReminder } = useApp();
@@ -33,11 +27,6 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
       return;
     }
 
-    // Request notification permission if supported and not granted
-    if (isNotificationSupported()) {
-      await requestNotificationPermission();
-    }
-
     const reminder = {
       title: title.trim(),
       datetime,
@@ -51,6 +40,12 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
 
   const testSound = (type: 'gentle' | 'chime') => {
     setTestingSound(type);
+    
+    const SOUND_OPTIONS = {
+      gentle: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+      chime: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
+    };
+
     const audio = new Audio(SOUND_OPTIONS[type]);
     audio.volume = 0.5;
     audio.load();
@@ -115,7 +110,7 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
 
         {playSound && (
           <div className="grid grid-cols-2 gap-2">
-            {(Object.keys(SOUND_OPTIONS) as Array<'gentle' | 'chime'>).map((type) => (
+            {(Object.keys({ gentle: '', chime: '' }) as Array<'gentle' | 'chime'>).map((type) => (
               <button
                 key={type}
                 type="button"
@@ -135,11 +130,11 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onComplete }) => {
           </div>
         )}
 
-        {!isNotificationSupported() && (
-          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-            ⚠️ Browser notifications are not supported on this device. You'll only hear the sound alert.
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <p className="text-xs text-blue-700">
+            💡 Reminders will show as in-app popups with optional sound alerts. No browser notifications are used.
           </p>
-        )}
+        </div>
       </div>
 
       <div className="flex justify-end gap-3">

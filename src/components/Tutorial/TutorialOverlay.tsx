@@ -40,15 +40,23 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ forceShow = fa
   const [showTutorial, setShowTutorial] = useState(false);
   const { user } = useAuth();
 
+  // Handle forceShow prop changes - this is the key fix
   useEffect(() => {
+    console.log('🎓 TutorialOverlay forceShow effect triggered:', { forceShow, showTutorial });
+    
     if (forceShow) {
+      console.log('🎓 Tutorial forced to show via prop');
       setShowTutorial(true);
       setCurrentStep(0);
-      return;
+    } else if (!forceShow && showTutorial) {
+      // If forceShow becomes false, hide tutorial
+      setShowTutorial(false);
     }
+  }, [forceShow]);
 
-    // Only show tutorial for new users who haven't seen it
-    if (user) {
+  // Auto-show tutorial for new users (only when not forced)
+  useEffect(() => {
+    if (!forceShow && user && !showTutorial) {
       const tutorialKey = `hasSeenTutorial_${user.uid}`;
       const hasSeenTutorial = localStorage.getItem(tutorialKey);
       
@@ -58,26 +66,56 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ forceShow = fa
         const isNewUser = accountAge < 10 * 60 * 1000; // 10 minutes
         
         if (isNewUser) {
+          console.log('🎓 Showing tutorial for new user');
           setShowTutorial(true);
         }
       }
     }
-  }, [user, forceShow]);
+  }, [user, forceShow, showTutorial]);
 
   const handleComplete = () => {
+    console.log('🎓 Tutorial completed');
+    
     if (user && !forceShow) {
       const tutorialKey = `hasSeenTutorial_${user.uid}`;
       localStorage.setItem(tutorialKey, 'true');
+      console.log('🎓 Tutorial marked as seen for user');
     }
     
     setShowTutorial(false);
+    setCurrentStep(0);
     
     if (onComplete) {
+      console.log('🎓 Calling onComplete callback');
       onComplete();
     }
   };
 
-  if (!showTutorial) return null;
+  const handleNext = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      handleComplete();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const handleClose = () => {
+    console.log('🎓 Tutorial closed via X button');
+    handleComplete();
+  };
+
+  console.log('🎓 TutorialOverlay render:', { showTutorial, forceShow, currentStep });
+
+  if (!showTutorial) {
+    console.log('🎓 Tutorial not showing - returning null');
+    return null;
+  }
 
   return (
     <AnimatePresence>
@@ -85,7 +123,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ forceShow = fa
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]"
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
@@ -103,7 +141,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ forceShow = fa
               {steps[currentStep].title}
             </motion.h2>
             <button
-              onClick={handleComplete}
+              onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -133,28 +171,23 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ forceShow = fa
             
             <div className="flex gap-3">
               <button
-                onClick={() => setCurrentStep(prev => prev - 1)}
+                onClick={handlePrevious}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                 disabled={currentStep === 0}
               >
                 Previous
               </button>
               
-              {currentStep < steps.length - 1 ? (
-                <button
-                  onClick={() => setCurrentStep(prev => prev + 1)}
-                  className="px-4 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  onClick={handleComplete}
-                  className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Get Started
-                </button>
-              )}
+              <button
+                onClick={handleNext}
+                className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                  currentStep < steps.length - 1
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {currentStep < steps.length - 1 ? 'Next' : 'Get Started'}
+              </button>
             </div>
           </div>
         </motion.div>

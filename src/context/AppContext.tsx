@@ -30,6 +30,9 @@ interface AppContextType extends AppState {
   retryCloudSync: () => void;
   dataLoadError: string | null;
   retryDataLoad: () => void;
+  // Tutorial state management
+  showTutorial: boolean;
+  setShowTutorial: (show: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -60,6 +63,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [isInitialized, setIsInitialized] = useState(false);
   const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Debounced save function to prevent too frequent writes
   const debouncedSave = debounce((newState: AppState) => {
@@ -206,6 +210,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     retryCloudSync: handleRetryCloudSync,
     dataLoadError,
     retryDataLoad,
+    showTutorial,
+    setShowTutorial,
     
     addMood: (mood: Mood, reflection?: string) => {
       try {

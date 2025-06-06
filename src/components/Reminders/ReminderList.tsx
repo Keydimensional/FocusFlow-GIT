@@ -5,16 +5,11 @@ import { ReminderForm } from './ReminderForm';
 import { ReminderPopup } from './ReminderPopup';
 import { Bell, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { trySendNotification } from '../../utils/notifications';
+import { playNotificationSound } from '../../utils/notifications';
 
 interface ReminderListProps {
   reminders: Reminder[];
 }
-
-const SOUND_OPTIONS = {
-  gentle: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-  chime: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
-};
 
 export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
   const [showForm, setShowForm] = useState(false);
@@ -37,30 +32,9 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
 
         if (timeDiff > 0) {
           const timeout = setTimeout(() => {
-            // Play sound first to ensure it's not blocked
+            // Play sound first
             if (reminder.playSound) {
-              const audio = new Audio(
-                reminder.soundType === 'chime' 
-                  ? SOUND_OPTIONS.chime 
-                  : SOUND_OPTIONS.gentle
-              );
-              audio.volume = 0.5;
-              // Preload the audio
-              audio.load();
-              // Play when ready
-              audio.addEventListener('canplaythrough', () => {
-                audio.play().catch(console.error);
-              });
-            }
-
-            // Try to show browser notification (safe for iOS)
-            const notificationSent = trySendNotification('Reminder!', {
-              body: reminder.title,
-              icon: '/vite.svg'
-            });
-
-            if (!notificationSent) {
-              console.log('📱 Browser notification not available, showing in-app popup only');
+              playNotificationSound(reminder.soundType || 'gentle');
             }
 
             // Show in-app popup

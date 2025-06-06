@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Timer, Play, Pause, RotateCcw, Settings, ArrowLeft } from 'lucide-react';
 import { FocusLock } from './FocusLock';
+import { playNotificationSound } from '../../utils/notifications';
 
 export const FocusTimer: React.FC = () => {
   const [workTime, setWorkTime] = useState(25 * 60);
@@ -20,9 +21,8 @@ export const FocusTimer: React.FC = () => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0) {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(() => {});
+      // Play notification sound when timer completes
+      playNotificationSound('chime');
 
       if (isBreak) {
         setTimeLeft(workTime);
@@ -198,6 +198,12 @@ export const FocusTimer: React.FC = () => {
       <p className="text-center mt-4 text-sm text-gray-600">
         {isBreak ? 'Time for a break!' : 'Stay focused on your task'}
       </p>
+      
+      <div className="mt-4 bg-blue-50 p-3 rounded-lg">
+        <p className="text-xs text-blue-700 text-center">
+          🔔 Timer completion alerts use in-app sounds only
+        </p>
+      </div>
     </div>
   );
 
