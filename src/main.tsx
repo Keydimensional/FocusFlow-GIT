@@ -3,6 +3,25 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Dynamic title fallback
+const setDynamicTitle = () => {
+  const title = 'BrainBounce – Your Focus Space';
+  
+  // Set document title as fallback
+  if (document.title !== title) {
+    document.title = title;
+  }
+  
+  // Also update any existing title meta tags
+  const titleMeta = document.querySelector('meta[property="og:title"]');
+  if (titleMeta) {
+    titleMeta.setAttribute('content', title);
+  }
+};
+
+// Set title immediately
+setDynamicTitle();
+
 // Enhanced error handling for debugging
 window.addEventListener('error', (event) => {
   console.error('🚨 Global error:', {
@@ -52,11 +71,16 @@ if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
 // Network status monitoring
 window.addEventListener('online', () => {
   console.log('🌐 Network: Online');
+  setDynamicTitle(); // Refresh title when coming back online
 });
 
 window.addEventListener('offline', () => {
   console.log('🌐 Network: Offline');
+  setDynamicTitle(); // Refresh title when going offline
 });
+
+// Periodic title check (in case it gets overridden)
+setInterval(setDynamicTitle, 5000);
 
 // Safe app rendering with comprehensive error handling
 const rootElement = document.getElementById('root');
@@ -92,6 +116,7 @@ if (!rootElement) {
       
       if (appContent) {
         console.log('✅ App content loaded successfully');
+        setDynamicTitle(); // Ensure title is set after app loads
       } else {
         console.warn('⚠️ App content may not have loaded properly');
       }

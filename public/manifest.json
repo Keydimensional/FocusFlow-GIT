@@ -1,0 +1,17 @@
+{
+  "name": "BrainBounce – Your Focus Space",
+  "short_name": "BrainBounce",
+  "description": "ADHD-friendly productivity app designed for neurodivergent minds",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
