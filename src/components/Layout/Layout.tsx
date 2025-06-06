@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SunMedium, Settings, LogOut, User, ChevronDown, AlertTriangle, RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
+import { SunMedium, Settings, LogOut, User, ChevronDown, AlertTriangle, RefreshCw, Wifi, WifiOff, Clock, MessageSquare } from 'lucide-react';
 import { SettingsModal } from '../Settings/SettingsModal';
 import { HeroSection } from './HeroSection';
 import { ToastNotification } from './ToastNotification';
@@ -232,8 +232,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
       
-      <footer className="text-center text-sm text-gray-600 py-4">
+      <footer className="text-center text-sm text-gray-600 py-4 space-y-2">
         <p>Optimised for your wellbeing</p>
+        <div className="flex items-center justify-center gap-4">
+          <a
+            href="https://forms.gle/jFwJcs5AgTe3vSsJ8"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-700 transition-colors"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Feature Request
+          </a>
+        </div>
       </footer>
 
       {/* Settings button - only show if account menu is not visible */}
