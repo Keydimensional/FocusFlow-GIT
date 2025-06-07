@@ -7,21 +7,28 @@ const defaultState: AppState = {
   goals: [],
   reminders: [],
   habits: [],
+  lists: [],
   brainDump: [],
   todaysFocus: null,
   lastCheckIn: null,
   streak: 0,
   widgets: [
+    // First Column (0-3): Priority widgets
     { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
-    { id: 'focusTimer', type: 'focusTimer', visible: true, order: 1 },
-    { id: 'streakCounter', type: 'streakCounter', visible: true, order: 2 },
-    { id: 'moodCheck', type: 'moodCheck', visible: true, order: 3 },
-    { id: 'moodBoard', type: 'moodBoard', visible: true, order: 4 },
-    { id: 'brainDump', type: 'brainDump', visible: true, order: 5 },
-    { id: 'moodHistory', type: 'moodHistory', visible: true, order: 6 },
-    { id: 'goalList', type: 'goalList', visible: true, order: 7 },
-    { id: 'reminderList', type: 'reminderList', visible: true, order: 8 },
-    { id: 'habitTracker', type: 'habitTracker', visible: true, order: 9 },
+    { id: 'goalList', type: 'goalList', visible: true, order: 1 },
+    { id: 'focusTimer', type: 'focusTimer', visible: true, order: 2 },
+    { id: 'reminderList', type: 'reminderList', visible: true, order: 3 },
+    
+    // Second Column (4-7): Secondary widgets - balanced height
+    { id: 'streakCounter', type: 'streakCounter', visible: true, order: 4 },
+    { id: 'moodCheck', type: 'moodCheck', visible: true, order: 5 },
+    { id: 'habitTracker', type: 'habitTracker', visible: true, order: 6 },
+    { id: 'moodBoard', type: 'moodBoard', visible: true, order: 7 },
+    
+    // Third Column (8-11): Tertiary widgets - optimized for visual balance
+    { id: 'moodHistory', type: 'moodHistory', visible: true, order: 8 },
+    { id: 'lists', type: 'lists', visible: true, order: 9 },
+    { id: 'brainDump', type: 'brainDump', visible: true, order: 10 },
   ],
 };
 
@@ -67,6 +74,22 @@ export const loadState = (): AppState => {
 
     const parsedState = JSON.parse(serializedState);
     
+    // Ensure the Lists widget exists in the widgets array
+    const hasListsWidget = parsedState.widgets?.some((w: any) => w.type === 'lists');
+    if (!hasListsWidget && Array.isArray(parsedState.widgets)) {
+      parsedState.widgets.push({ id: 'lists', type: 'lists', visible: true, order: 9 });
+    }
+    
+    // Ensure each list has a valid items array and filter out invalid list objects
+    const validatedLists = Array.isArray(parsedState.lists) 
+      ? parsedState.lists
+          .filter((list: any) => list && typeof list === 'object' && list.id) // Filter out null, undefined, or invalid list objects
+          .map((list: any) => ({
+            ...list,
+            items: Array.isArray(list.items) ? list.items : []
+          }))
+      : defaultState.lists;
+    
     // Validate and merge with default state to ensure all properties exist
     const mergedState = {
       ...defaultState,
@@ -76,6 +99,7 @@ export const loadState = (): AppState => {
       goals: Array.isArray(parsedState.goals) ? parsedState.goals : defaultState.goals,
       reminders: Array.isArray(parsedState.reminders) ? parsedState.reminders : defaultState.reminders,
       habits: Array.isArray(parsedState.habits) ? parsedState.habits : defaultState.habits,
+      lists: validatedLists,
       brainDump: Array.isArray(parsedState.brainDump) ? parsedState.brainDump : defaultState.brainDump,
       widgets: Array.isArray(parsedState.widgets) ? parsedState.widgets : defaultState.widgets,
     };

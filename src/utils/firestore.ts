@@ -30,6 +30,44 @@ const displayToast = (message: string, type: 'error' | 'warning' | 'success' = '
   }
 };
 
+// Data validation function to ensure proper structure
+const validateAppState = (data: any): AppState => {
+  const validated = { ...data };
+  
+  // Ensure lists array exists and each list has proper items array
+  if (!Array.isArray(validated.lists)) {
+    validated.lists = [];
+  } else {
+    validated.lists = validated.lists.map((list: any) => ({
+      ...list,
+      items: Array.isArray(list.items) ? list.items : []
+    }));
+  }
+  
+  // Ensure other arrays exist
+  if (!Array.isArray(validated.goals)) {
+    validated.goals = [];
+  }
+  
+  if (!Array.isArray(validated.habits)) {
+    validated.habits = [];
+  }
+  
+  if (!Array.isArray(validated.reminders)) {
+    validated.reminders = [];
+  }
+  
+  if (!Array.isArray(validated.moodHistory)) {
+    validated.moodHistory = [];
+  }
+  
+  if (!Array.isArray(validated.brainDumpEntries)) {
+    validated.brainDumpEntries = [];
+  }
+  
+  return validated as AppState;
+};
+
 // Load connection state
 const loadConnectionState = () => {
   try {
@@ -205,9 +243,12 @@ const saveUserDataDirect = async (uid: string, data: AppState): Promise<void> =>
 
   const userDocRef = doc(db, 'users', uid);
   
+  // Validate data before saving
+  const validatedData = validateAppState(data);
+  
   // Add timeout to setDoc operation
   const savePromise = setDoc(userDocRef, {
-    ...data,
+    ...validatedData,
     lastUpdated: new Date().toISOString(),
     clientTimestamp: Date.now()
   }, { merge: true });
@@ -282,7 +323,9 @@ const debouncedSave = debounce(async (uid: string, saveData: any) => {
 }, 3000);
 
 const cacheData = (data: AppState) => {
-  const cache = { data, timestamp: Date.now() };
+  // Validate data before caching
+  const validatedData = validateAppState(data);
+  const cache = { data: validatedData, timestamp: Date.now() };
   
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
@@ -303,7 +346,7 @@ const loadCache = (): AppState | null => {
     if (localData) {
       const { data, timestamp } = JSON.parse(localData);
       if (Date.now() - timestamp < MAX_CACHE_AGE) {
-        return data;
+        return validateAppState(data);
       }
     }
   } catch (e) {
@@ -312,12 +355,12 @@ const loadCache = (): AppState | null => {
       if (sessionData) {
         const { data, timestamp } = JSON.parse(sessionData);
         if (Date.now() - timestamp < MAX_CACHE_AGE) {
-          return data;
+          return validateAppState(data);
         }
       }
     } catch (e) {
       if (memoryCache && Date.now() - memoryCache.timestamp < MAX_CACHE_AGE) {
-        return memoryCache.data;
+        return validateAppState(memoryCache.data);
       }
     }
   }
@@ -385,7 +428,7 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
           next: (doc) => {
             clearTimeout(timeout);
             if (doc.exists()) {
-              const data = doc.data() as AppState;
+              const data = validateAppState(doc.data());
               cacheData(data);
               resolve(data);
             } else {

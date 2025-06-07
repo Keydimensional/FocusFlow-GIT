@@ -9,6 +9,7 @@ import { DailyFocus } from '../Focus/DailyFocus';
 import { BrainDump } from '../BrainDump/BrainDump';
 import { FocusTimer } from '../Timer/FocusTimer';
 import { MoodBoard } from '../MoodBoard/MoodBoard';
+import { ListsWidget } from '../Lists/ListsWidget';
 import { useApp } from '../../context/AppContext';
 
 const widgetEmojis = {
@@ -22,6 +23,7 @@ const widgetEmojis = {
   goalList: '✨',
   reminderList: '⏰',
   habitTracker: '📝',
+  lists: '📋',
 };
 
 export const Dashboard: React.FC = () => {
@@ -57,6 +59,8 @@ export const Dashboard: React.FC = () => {
         return <ReminderList key={widget.id} reminders={activeReminders} />;
       case 'habitTracker':
         return <HabitTracker key={widget.id} />;
+      case 'lists':
+        return <ListsWidget key={widget.id} />;
       default:
         return null;
     }
@@ -64,14 +68,19 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* First Column: Priority widgets (0-3) */}
       <div className="space-y-6">
-        {getVisibleWidgets(0, 3).map(renderWidget)}
+        {getVisibleWidgets(0, 4).map(renderWidget)}
       </div>
+      
+      {/* Second Column: Secondary widgets (4-7) */}
       <div className="space-y-6">
-        {getVisibleWidgets(3, 7).map(renderWidget)}
+        {getVisibleWidgets(4, 8).map(renderWidget)}
       </div>
+      
+      {/* Third Column: Tertiary widgets (8-11) - Lists positioned after Mood History */}
       <div className="space-y-6">
-        {getVisibleWidgets(7, 10).map(renderWidget)}
+        {getVisibleWidgets(8, 12).map(renderWidget)}
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, X } from 'lucide-react';
 
 interface HabitFormProps {
   onComplete: () => void;
@@ -12,12 +11,13 @@ const COLORS = [
   'bg-purple-100 text-purple-700 border-purple-300',
   'bg-yellow-100 text-yellow-700 border-yellow-300',
   'bg-pink-100 text-pink-700 border-pink-300',
+  'bg-indigo-100 text-indigo-700 border-indigo-300',
 ];
 
 const GAMES = [
-  { id: 'memory', name: 'Memory Match', description: 'Match pairs of cards to complete your habit' },
-  { id: '2048', name: '2048', description: 'Reach 32 to mark completion' },
-  { id: 'reaction', name: 'Reaction Time', description: 'Test your reflexes while building habits' }
+  { id: 'memory', name: 'Memory Match', icon: '🧠' },
+  { id: '2048', name: '2048', icon: '🎯' },
+  { id: 'reaction', name: 'Reaction Time', icon: '⚡' }
 ];
 
 export const HabitForm: React.FC<HabitFormProps> = ({ onComplete }) => {
@@ -90,20 +90,20 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onComplete }) => {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Mini-Game
         </label>
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {GAMES.map(game => (
             <button
               key={game.id}
               type="button"
               onClick={() => setSelectedGame(game.id)}
-              className={`p-3 rounded-lg border text-left transition-colors ${
+              className={`p-3 rounded-lg border text-center transition-colors ${
                 selectedGame === game.id
                   ? 'bg-purple-100 text-purple-700 border-purple-300'
                   : 'bg-gray-50 text-gray-700 border-gray-300'
               }`}
             >
-              <div className="font-medium">{game.name}</div>
-              <div className="text-sm opacity-75">{game.description}</div>
+              <div className="text-2xl mb-1">{game.icon}</div>
+              <div className="text-xs font-medium">{game.name}</div>
             </button>
           ))}
         </div>
@@ -111,7 +111,7 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onComplete }) => {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Color Theme
+          Color
         </label>
         <div className="flex gap-2">
           {COLORS.map((c) => (

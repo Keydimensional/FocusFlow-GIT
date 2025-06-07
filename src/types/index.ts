@@ -48,9 +48,23 @@ export interface BrainDumpItem {
   timestamp: number;
 }
 
+export interface ListItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+export interface List {
+  id: string;
+  title: string;
+  items: ListItem[];
+  createdAt: string;
+}
+
 export interface Widget {
   id: string;
-  type: 'dailyFocus' | 'focusTimer' | 'streakCounter' | 'moodCheck' | 'brainDump' | 'moodHistory' | 'goalList' | 'reminderList' | 'habitTracker' | 'moodBoard';
+  type: 'dailyFocus' | 'focusTimer' | 'streakCounter' | 'moodCheck' | 'brainDump' | 'moodHistory' | 'goalList' | 'reminderList' | 'habitTracker' | 'moodBoard' | 'lists';
   visible: boolean;
   order: number;
 }
@@ -60,6 +74,7 @@ export interface AppState {
   goals: Goal[];
   reminders: Reminder[];
   habits: Habit[];
+  lists: List[];
   lastCheckIn: string | null;
   streak: number;
   todaysFocus: DailyFocus | null;

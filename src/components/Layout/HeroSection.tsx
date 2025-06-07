@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Sparkles, Heart, ChevronDown } from 'lucide-react';
+import { Brain, Sparkles, Heart, ChevronDown, Smartphone, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const HeroSection: React.FC = () => {
@@ -40,7 +40,7 @@ export const HeroSection: React.FC = () => {
         No pressure. No shame. Just small wins, dopamine-friendly design, and structure that bends with you.
       </p>
 
-      <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+      <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-6">
         <div className="space-y-2">
           <Brain className="w-8 h-8 text-purple-500 mx-auto" />
           <h3 className="font-semibold text-gray-800">Built for Neurodivergence</h3>
@@ -58,6 +58,19 @@ export const HeroSection: React.FC = () => {
           <h3 className="font-semibold text-gray-800">Beautifully Minimal</h3>
           <p className="text-gray-600">Designed to calm and support</p>
         </div>
+      </div>
+
+      {/* Cross-platform feature highlight */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 max-w-2xl mx-auto">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <Smartphone className="w-5 h-5 text-purple-600" />
+          <span className="text-purple-600 font-medium">⟷</span>
+          <Monitor className="w-5 h-5 text-purple-600" />
+        </div>
+        <h4 className="font-semibold text-gray-800 mb-1">Seamless Cross-Platform Sync</h4>
+        <p className="text-sm text-gray-600">
+          Start on your phone, continue on desktop. Your progress, goals, and streaks sync automatically across all devices.
+        </p>
       </div>
 
       <AnimatePresence>

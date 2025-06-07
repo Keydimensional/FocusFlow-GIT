@@ -19,7 +19,8 @@ const widgetNames: Record<string, string> = {
   goalList: 'Goals',
   reminderList: 'Reminders',
   habitTracker: 'Habits',
-  moodBoard: 'Gentle Reminders'
+  moodBoard: 'Gentle Reminders',
+  lists: 'Lists'
 };
 
 interface SettingsModalProps {

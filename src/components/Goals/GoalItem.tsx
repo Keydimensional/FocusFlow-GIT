@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Goal } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { Check, ChevronDown, ChevronUp, Save, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface GoalItemProps {
   goal: Goal;
@@ -13,6 +14,7 @@ export const GoalItem: React.FC<GoalItemProps> = ({ goal }) => {
   const [progress, setProgress] = useState(goal.progress || 0);
   const [notes, setNotes] = useState(goal.notes || '');
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [showConfirmComplete, setShowConfirmComplete] = useState(false);
 
   const handleProgressChange = (newProgress: number) => {
     setProgress(newProgress);
@@ -29,6 +31,48 @@ export const GoalItem: React.FC<GoalItemProps> = ({ goal }) => {
     setUnsavedChanges(false);
   };
 
+  const handleCompleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!goal.completed) {
+      setShowConfirmComplete(true);
+    } else {
+      toggleGoal(goal.id);
+    }
+  };
+
+  const confirmComplete = () => {
+    toggleGoal(goal.id);
+    setShowConfirmComplete(false);
+  };
+
+  if (showConfirmComplete) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="bg-green-50 rounded-lg p-4 border-2 border-green-200"
+      >
+        <h3 className="font-medium text-green-800 mb-2">Complete this goal?</h3>
+        <p className="text-green-700 text-sm mb-4">"{goal.title}"</p>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setShowConfirmComplete(false)}
+            className="px-3 py-1.5 text-gray-600 hover:text-gray-700 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirmComplete}
+            className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+          >
+            Yes, Complete Goal
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <div className="bg-gray-50 rounded-lg overflow-hidden">
       <div 
@@ -36,10 +80,7 @@ export const GoalItem: React.FC<GoalItemProps> = ({ goal }) => {
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleGoal(goal.id);
-          }}
+          onClick={handleCompleteClick}
           className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-200
             ${goal.completed 
               ? 'bg-green-500 border-green-500 text-white' 

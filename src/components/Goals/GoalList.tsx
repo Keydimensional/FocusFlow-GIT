@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Goal } from '../../types';
 import { GoalItem } from './GoalItem';
 import { GoalForm } from './GoalForm';
+import { CompletedGoals } from './CompletedGoals';
 import { Plus, Target } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 
 interface GoalListProps {
   goals: Goal[];
@@ -10,6 +12,9 @@ interface GoalListProps {
 
 export const GoalList: React.FC<GoalListProps> = ({ goals }) => {
   const [showForm, setShowForm] = useState(false);
+  const { goals: allGoals } = useApp();
+  
+  const completedGoals = allGoals.filter(goal => goal.completed);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -40,6 +45,13 @@ export const GoalList: React.FC<GoalListProps> = ({ goals }) => {
           goals.map(goal => <GoalItem key={goal.id} goal={goal} />)
         )}
       </div>
+
+      {/* Completed Goals Section */}
+      {completedGoals.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <CompletedGoals goals={completedGoals} />
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SunMedium, Settings, LogOut, User, ChevronDown, AlertTriangle, RefreshCw, Wifi, WifiOff, Clock, MessageSquare } from 'lucide-react';
+import { SunMedium, Settings, LogOut, User, ChevronDown, AlertTriangle, RefreshCw, Wifi, WifiOff, Clock, MessageSquare, Smartphone } from 'lucide-react';
 import { SettingsModal } from '../Settings/SettingsModal';
 import { HeroSection } from './HeroSection';
 import { ToastNotification } from './ToastNotification';
@@ -234,6 +234,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       
       <footer className="text-center text-sm text-gray-600 py-4 space-y-2">
         <p>Optimised for your wellbeing</p>
+        
+        {/* Cross-platform sync info */}
+        <div className="flex items-center justify-center gap-1 text-xs text-purple-600 bg-purple-50 rounded-full px-3 py-1 mx-auto w-fit">
+          <Smartphone className="w-3 h-3" />
+          <span>Pick up where you left off on any device</span>
+        </div>
+        
         <div className="flex items-center justify-center gap-4">
           <a
             href="https://forms.gle/jFwJcs5AgTe3vSsJ8"

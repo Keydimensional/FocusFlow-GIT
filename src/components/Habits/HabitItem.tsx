@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Habit } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { Check, Play, Trash2 } from 'lucide-react';
+import { Check, Play, Trash2, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MiniGame } from './MiniGame';
 
@@ -27,6 +27,12 @@ const CompletionAnimation = () => (
     </motion.div>
   </motion.div>
 );
+
+const gameTypeNames: Record<string, string> = {
+  memory: 'Memory',
+  '2048': '2048',
+  reaction: 'Reaction'
+};
 
 export const HabitItem: React.FC<HabitItemProps> = ({ habit, onDelete }) => {
   const { toggleHabit } = useApp();
@@ -59,6 +65,7 @@ export const HabitItem: React.FC<HabitItemProps> = ({ habit, onDelete }) => {
           <div className="flex-grow">
             <h3 className="font-medium">{habit.title}</h3>
             <div className="flex items-center gap-2 mt-1">
+              <Flame className="w-4 h-4 text-orange-500" />
               <span className="text-sm">Streak: {habit.streak} days</span>
             </div>
             <p className="text-sm mt-1 opacity-75">{getStatusMessage()}</p>

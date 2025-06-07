@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, Goal, Mood, Reminder, Habit, Widget } from '../types';
+import { AppState, Goal, Mood, Reminder, Habit, Widget, List, ListItem } from '../types';
 import { saveState, loadState } from '../utils/storage';
 import { formatDate, isConsecutiveDay, isToday, calculateStreak } from '../utils/dateUtils';
 import { useAuth } from '../components/Auth/AuthProvider';
@@ -19,6 +19,11 @@ interface AppContextType extends AppState {
   addHabit: (habit: Pick<Habit, 'title' | 'frequency' | 'color' | 'gameType'>) => void;
   toggleHabit: (id: string) => void;
   deleteHabit: (id: string) => void;
+  addList: (title: string) => void;
+  deleteList: (id: string) => void;
+  addListItem: (listId: string, text: string) => void;
+  toggleListItem: (listId: string, itemId: string) => void;
+  deleteListItem: (listId: string, itemId: string) => void;
   addFocus: (text: string) => void;
   updateFocus: (text: string) => void;
   addBrainDump: (text: string) => void;
@@ -75,7 +80,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (user) {
         syncUserData(newState).catch(error => {
           console.error('Failed to sync to Firestore:', error);
-          // Don't show error to user as local save succeeded
+          // Don't throw error as local save should have succeeded
         });
       }
     } catch (error) {
@@ -98,7 +103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             console.log('✅ User data loaded from cloud');
             setState(userData);
           } else {
-            console.log('📱 Using local data');
+            console.log('📱 No cloud data found, using local storage');
             // Keep current local state
           }
           
@@ -413,6 +418,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDataLoadError('Failed to delete habit. Please try again.');
       }
     },
+
+    addList: (title: string) => {
+      try {
+        const newList: List = {
+          id: generateId(),
+          title,
+          items: [],
+          createdAt: new Date().toISOString()
+        };
+        setState(prev => ({
+          ...prev,
+          lists: [...prev.lists, newList]
+        }));
+      } catch (error) {
+        console.error('Error adding list:', error);
+        setDataLoadError('Failed to add list. Please try again.');
+      }
+    },
+
+    deleteList: (id: string) => {
+      try {
+        setState(prev => ({
+          ...prev,
+          lists: prev.lists.filter(list => list.id !== id)
+        }));
+      } catch (error) {
+        console.error('Error deleting list:', error);
+        setDataLoadError('Failed to delete list. Please try again.');
+      }
+    },
+
+    addListItem: (listId: string, text: string) => {
+      try {
+        const newItem: ListItem = {
+          id: generateId(),
+          text,
+          completed: false,
+          createdAt: new Date().toISOString()
+        };
+        setState(prev => ({
+          ...prev,
+          lists: prev.lists.map(list =>
+            list.id === listId
+              ? { ...list, items: [...list.items, newItem] }
+              : list
+          )
+        }));
+      } catch (error) {
+        console.error('Error adding list item:', error);
+        setDataLoadError('Failed to add list item. Please try again.');
+      }
+    },
+
+    toggleListItem: (listId: string, itemId: string) => {
+      try {
+        setState(prev => ({
+          ...prev,
+          lists: prev.lists.map(list =>
+            list.id === listId
+              ? {
+                  ...list,
+                  items: list.items.map(item =>
+                    item.id === itemId
+                      ? { ...item, completed: !item.completed }
+                      : item
+                  )
+                }
+              : list
+          )
+        }));
+      } catch (error) {
+        console.error('Error toggling list item:', error);
+        setDataLoadError('Failed to update list item. Please try again.');
+      }
+    },
+
+    deleteListItem: (listId: string, itemId: string) => {
+      try {
+        setState(prev => ({
+          ...prev,
+          lists: prev.lists.map(list =>
+            list.id === listId
+              ? {
+                  ...list,
+                  items: list.items.filter(item => item.id !== itemId)
+                }
+              : list
+          )
+        }));
+      } catch (error) {
+        console.error('Error deleting list item:', error);
+        setDataLoadError('Failed to delete list item. Please try again.');
+      }
+    },
     
     addFocus: (text: string) => {
       try {
@@ -503,9 +602,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     resetWidgets: () => {
       try {
+        // Get fresh default state with optimized layout
+        const defaultWidgets = [
+          // First Column (0-3): Priority widgets
+          { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
+          { id: 'goalList', type: 'goalList', visible: true, order: 1 },
+          { id: 'focusTimer', type: 'focusTimer', visible: true, order: 2 },
+          { id: 'reminderList', type: 'reminderList', visible: true, order: 3 },
+          
+          // Second Column (4-7): Secondary widgets - balanced height
+          { id: 'streakCounter', type: 'streakCounter', visible: true, order: 4 },
+          { id: 'moodCheck', type: 'moodCheck', visible: true, order: 5 },
+          { id: 'habitTracker', type: 'habitTracker', visible: true, order: 6 },
+          { id: 'moodBoard', type: 'moodBoard', visible: true, order: 7 },
+          
+          // Third Column (8-11): Tertiary widgets - optimized for visual balance
+          { id: 'moodHistory', type: 'moodHistory', visible: true, order: 8 },
+          { id: 'lists', type: 'lists', visible: true, order: 9 },
+          { id: 'brainDump', type: 'brainDump', visible: true, order: 10 },
+        ] as Widget[];
+        
         setState(prev => ({
           ...prev,
-          widgets: loadState().widgets,
+          widgets: defaultWidgets,
         }));
       } catch (error) {
         console.error('Error resetting widgets:', error);
