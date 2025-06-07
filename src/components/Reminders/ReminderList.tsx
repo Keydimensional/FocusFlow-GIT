@@ -30,7 +30,10 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
         const now = new Date();
         const timeDiff = reminderTime.getTime() - now.getTime();
 
+        // Only schedule if the reminder time is in the future
         if (timeDiff > 0) {
+          console.log(`📅 Scheduling reminder "${reminder.title}" for ${reminderTime.toLocaleString()}`);
+          
           // Schedule local notification for native apps
           scheduleReminderNotification({
             id: reminder.id,
@@ -42,17 +45,23 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
 
           // Schedule in-app notification
           const timeout = setTimeout(() => {
-            // Play sound first
+            console.log(`🔔 Reminder due: ${reminder.title}`);
+            
+            // Play sound first if enabled
             if (reminder.playSound) {
               playNotificationSound(reminder.soundType || 'gentle');
             }
 
             // Show in-app popup
             setActiveReminder(reminder);
+            
+            // Mark reminder as completed
             toggleReminder(reminder.id);
           }, timeDiff);
 
           newTimeouts.push(timeout);
+        } else {
+          console.log(`⏰ Reminder "${reminder.title}" is in the past, skipping notification`);
         }
       } else {
         // Cancel local notification if reminder is completed
