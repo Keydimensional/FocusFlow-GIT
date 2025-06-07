@@ -60,7 +60,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { user, syncUserData, loadUserData, isCloudSyncAvailable, retryCloudSync } = useAuth();
   const [state, setState] = useState<AppState>(() => {
     try {
-      return loadState();
+      const loadedState = loadState();
+      console.log('🔄 Initial state loaded, widgets:', loadedState.widgets.map(w => ({ type: w.type, visible: w.visible })));
+      return loadedState;
     } catch (error) {
       console.error('Failed to load initial state:', error);
       return loadState(); // loadState has its own error handling
@@ -101,10 +103,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           if (userData) {
             console.log('✅ User data loaded from cloud');
+            
+            // CRITICAL: Ensure Lists widget is visible for cloud data too
+            let widgets = Array.isArray(userData.widgets) ? [...userData.widgets] : [];
+            
+            // Check if Lists widget exists and is visible
+            const listsWidget = widgets.find(w => w.type === 'lists');
+            if (!listsWidget) {
+              widgets.push({ id: 'lists', type: 'lists', visible: true, order: 9 });
+              console.log('✅ Added missing Lists widget to cloud data');
+            } else if (!listsWidget.visible) {
+              listsWidget.visible = true;
+              console.log('✅ Made Lists widget visible in cloud data');
+            }
+            
+            // Ensure all widgets are visible by default
+            widgets = widgets.map(widget => ({
+              ...widget,
+              visible: widget.visible !== false
+            }));
+            
+            userData.widgets = widgets;
             setState(userData);
           } else {
             console.log('📱 No cloud data found, using local storage');
-            // Keep current local state
+            // Keep current local state which already has proper widget setup
           }
           
         } catch (error: any) {
@@ -188,6 +211,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       if (userData) {
         console.log('✅ Data load retry successful');
+        
+        // Ensure Lists widget is visible
+        let widgets = Array.isArray(userData.widgets) ? [...userData.widgets] : [];
+        const listsWidget = widgets.find(w => w.type === 'lists');
+        if (!listsWidget) {
+          widgets.push({ id: 'lists', type: 'lists', visible: true, order: 9 });
+        } else if (!listsWidget.visible) {
+          listsWidget.visible = true;
+        }
+        
+        userData.widgets = widgets;
         setState(userData);
       }
       
@@ -602,7 +636,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     resetWidgets: () => {
       try {
-        // Get fresh default state with optimized layout
+        // Get fresh default state with optimized layout and ALL widgets visible
         const defaultWidgets = [
           // First Column (0-3): Priority widgets
           { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
@@ -621,6 +655,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           { id: 'lists', type: 'lists', visible: true, order: 9 },
           { id: 'brainDump', type: 'brainDump', visible: true, order: 10 },
         ] as Widget[];
+        
+        console.log('🔄 Resetting widgets to default with Lists visible:', defaultWidgets.find(w => w.type === 'lists'));
         
         setState(prev => ({
           ...prev,

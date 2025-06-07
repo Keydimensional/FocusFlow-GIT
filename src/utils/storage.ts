@@ -74,36 +74,40 @@ export const loadState = (): AppState => {
 
     const parsedState = JSON.parse(serializedState);
     
-    // Ensure the Lists widget exists in the widgets array
-    const hasListsWidget = parsedState.widgets?.some((w: any) => w.type === 'lists');
-    if (!hasListsWidget && Array.isArray(parsedState.widgets)) {
-      parsedState.widgets.push({ id: 'lists', type: 'lists', visible: true, order: 9 });
+    // CRITICAL: Force migration for existing users to ensure Lists widget is visible
+    let widgets = Array.isArray(parsedState.widgets) ? [...parsedState.widgets] : [...defaultState.widgets];
+    
+    // Check if Lists widget exists
+    const hasListsWidget = widgets.some(w => w.type === 'lists');
+    
+    if (!hasListsWidget) {
+      // Add Lists widget if it doesn't exist
+      widgets.push({ id: 'lists', type: 'lists', visible: true, order: 9 });
+      console.log('✅ Added missing Lists widget for existing user');
     }
     
-    // Ensure all widgets are visible by default - fix for existing users
-    if (Array.isArray(parsedState.widgets)) {
-      parsedState.widgets = parsedState.widgets.map((widget: any) => ({
-        ...widget,
-        visible: widget.visible !== false // Default to true unless explicitly set to false
-      }));
-      
-      // Ensure all default widgets exist
-      const defaultWidgetTypes = defaultState.widgets.map(w => w.type);
-      const existingWidgetTypes = parsedState.widgets.map((w: any) => w.type);
-      
-      // Add any missing widgets
-      defaultWidgetTypes.forEach(type => {
-        if (!existingWidgetTypes.includes(type)) {
-          const defaultWidget = defaultState.widgets.find(w => w.type === type);
-          if (defaultWidget) {
-            parsedState.widgets.push({ ...defaultWidget });
-          }
+    // Ensure all widgets are visible by default (migration for existing users)
+    widgets = widgets.map(widget => ({
+      ...widget,
+      visible: widget.visible !== false // Force visible unless explicitly set to false
+    }));
+    
+    // Ensure all default widgets exist (add any missing ones)
+    const defaultWidgetTypes = defaultState.widgets.map(w => w.type);
+    const existingWidgetTypes = widgets.map(w => w.type);
+    
+    defaultWidgetTypes.forEach(type => {
+      if (!existingWidgetTypes.includes(type)) {
+        const defaultWidget = defaultState.widgets.find(w => w.type === type);
+        if (defaultWidget) {
+          widgets.push({ ...defaultWidget, visible: true });
+          console.log(`✅ Added missing ${type} widget for existing user`);
         }
-      });
-      
-      // Sort widgets by order
-      parsedState.widgets.sort((a: any, b: any) => a.order - b.order);
-    }
+      }
+    });
+    
+    // Sort widgets by order
+    widgets.sort((a, b) => a.order - b.order);
     
     // Ensure each list has a valid items array and filter out invalid list objects
     const validatedLists = Array.isArray(parsedState.lists) 
@@ -126,10 +130,10 @@ export const loadState = (): AppState => {
       habits: Array.isArray(parsedState.habits) ? parsedState.habits : defaultState.habits,
       lists: validatedLists,
       brainDump: Array.isArray(parsedState.brainDump) ? parsedState.brainDump : defaultState.brainDump,
-      widgets: Array.isArray(parsedState.widgets) ? parsedState.widgets : defaultState.widgets,
+      widgets: widgets, // Use the processed widgets array
     };
 
-    console.log('State loaded successfully');
+    console.log('State loaded successfully with widget migration');
     return mergedState;
   } catch (error) {
     console.error('Failed to load state:', error);

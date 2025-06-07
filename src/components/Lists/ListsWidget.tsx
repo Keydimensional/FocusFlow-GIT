@@ -109,7 +109,7 @@ export const ListsWidget: React.FC = () => {
                 <div className="text-center py-8">
                   <div className="text-4xl mb-3">📝</div>
                   <p className="text-gray-500 mb-2">No lists yet</p>
-                  <p className="text-sm text-gray-400">Create your first list to get organized!</p>
+                  <p className="text-sm text-gray-400">Create your first list to get organised!</p>
                 </div>
               ) : (
                 lists.filter(list => list && typeof list === 'object').map((list) => (
