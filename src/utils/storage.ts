@@ -80,6 +80,31 @@ export const loadState = (): AppState => {
       parsedState.widgets.push({ id: 'lists', type: 'lists', visible: true, order: 9 });
     }
     
+    // Ensure all widgets are visible by default - fix for existing users
+    if (Array.isArray(parsedState.widgets)) {
+      parsedState.widgets = parsedState.widgets.map((widget: any) => ({
+        ...widget,
+        visible: widget.visible !== false // Default to true unless explicitly set to false
+      }));
+      
+      // Ensure all default widgets exist
+      const defaultWidgetTypes = defaultState.widgets.map(w => w.type);
+      const existingWidgetTypes = parsedState.widgets.map((w: any) => w.type);
+      
+      // Add any missing widgets
+      defaultWidgetTypes.forEach(type => {
+        if (!existingWidgetTypes.includes(type)) {
+          const defaultWidget = defaultState.widgets.find(w => w.type === type);
+          if (defaultWidget) {
+            parsedState.widgets.push({ ...defaultWidget });
+          }
+        }
+      });
+      
+      // Sort widgets by order
+      parsedState.widgets.sort((a: any, b: any) => a.order - b.order);
+    }
+    
     // Ensure each list has a valid items array and filter out invalid list objects
     const validatedLists = Array.isArray(parsedState.lists) 
       ? parsedState.lists

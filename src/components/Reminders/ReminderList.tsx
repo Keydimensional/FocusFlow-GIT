@@ -5,7 +5,7 @@ import { ReminderForm } from './ReminderForm';
 import { ReminderPopup } from './ReminderPopup';
 import { Bell, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { playNotificationSound } from '../../utils/notifications';
+import { playNotificationSound, scheduleReminderNotification, cancelLocalNotification } from '../../utils/notifications';
 
 interface ReminderListProps {
   reminders: Reminder[];
@@ -31,6 +31,16 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
         const timeDiff = reminderTime.getTime() - now.getTime();
 
         if (timeDiff > 0) {
+          // Schedule local notification for native apps
+          scheduleReminderNotification({
+            id: reminder.id,
+            title: reminder.title,
+            datetime: reminder.datetime,
+          }).catch(error => {
+            console.warn('Failed to schedule local notification:', error);
+          });
+
+          // Schedule in-app notification
           const timeout = setTimeout(() => {
             // Play sound first
             if (reminder.playSound) {
@@ -44,6 +54,16 @@ export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => {
 
           newTimeouts.push(timeout);
         }
+      } else {
+        // Cancel local notification if reminder is completed
+        const numericId = Math.abs(reminder.id.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0));
+        
+        cancelLocalNotification(numericId).catch(error => {
+          console.warn('Failed to cancel local notification:', error);
+        });
       }
     });
 

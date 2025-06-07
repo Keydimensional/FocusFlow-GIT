@@ -2,6 +2,7 @@ import React from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
+import { NotificationSettings } from './NotificationSettings';
 import { X, RotateCcw, User, Edit2, BookOpen } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../Auth/AuthProvider';
@@ -57,6 +58,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       
       updateWidgetOrder(newWidgets);
     }
+  };
+
+  const handleResetWidgets = () => {
+    // Reset to default layout with all widgets visible
+    const defaultWidgets = [
+      // First Column (0-3): Priority widgets
+      { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
+      { id: 'goalList', type: 'goalList', visible: true, order: 1 },
+      { id: 'focusTimer', type: 'focusTimer', visible: true, order: 2 },
+      { id: 'reminderList', type: 'reminderList', visible: true, order: 3 },
+      
+      // Second Column (4-7): Secondary widgets - balanced height
+      { id: 'streakCounter', type: 'streakCounter', visible: true, order: 4 },
+      { id: 'moodCheck', type: 'moodCheck', visible: true, order: 5 },
+      { id: 'habitTracker', type: 'habitTracker', visible: true, order: 6 },
+      { id: 'moodBoard', type: 'moodBoard', visible: true, order: 7 },
+      
+      // Third Column (8-11): Tertiary widgets - optimized for visual balance
+      { id: 'moodHistory', type: 'moodHistory', visible: true, order: 8 },
+      { id: 'lists', type: 'lists', visible: true, order: 9 },
+      { id: 'brainDump', type: 'brainDump', visible: true, order: 10 },
+    ] as Widget[];
+    
+    updateWidgetOrder(defaultWidgets);
   };
 
   const getDisplayName = () => {
@@ -134,6 +159,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 </div>
               )}
 
+              {/* Notifications Section */}
+              <NotificationSettings />
+
               {/* Tutorial Section */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-800">Help</h3>
@@ -155,16 +183,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium text-gray-800">Dashboard</h3>
                   <button
-                    onClick={resetWidgets}
+                    onClick={handleResetWidgets}
                     className="flex items-center gap-2 text-purple-600 hover:text-purple-700 text-sm"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    Reset
+                    Reset & Show All
                   </button>
                 </div>
 
                 <p className="text-sm text-gray-600">
-                  Drag and drop to reorder widgets
+                  Drag and drop to reorder widgets. Use the eye icon to show/hide widgets.
                 </p>
 
                 <DndContext 

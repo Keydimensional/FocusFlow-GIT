@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { initializeNotifications } from './utils/notifications';
 
 // Dynamic title fallback
 const setDynamicTitle = () => {
@@ -81,6 +82,11 @@ window.addEventListener('offline', () => {
 
 // Periodic title check (in case it gets overridden)
 setInterval(setDynamicTitle, 5000);
+
+// Initialize notifications system
+initializeNotifications().catch(error => {
+  console.warn('Failed to initialize notifications:', error);
+});
 
 // Safe app rendering with comprehensive error handling
 const rootElement = document.getElementById('root');

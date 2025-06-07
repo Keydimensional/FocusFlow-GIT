@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Timer, Play, Pause, RotateCcw, Settings, ArrowLeft, Minimize2 } from 'lucide-react';
 import { FocusLock } from './FocusLock';
-import { playNotificationSound } from '../../utils/notifications';
+import { playNotificationSound, scheduleFocusTimerNotification, cancelFocusTimerNotification } from '../../utils/notifications';
 
 export const FocusTimer: React.FC = () => {
   const [workTime, setWorkTime] = useState(25 * 60);
@@ -49,13 +49,36 @@ export const FocusTimer: React.FC = () => {
     setTimeLeft(isBreak ? breakTime : workTime);
     setIsRunning(false);
     setIsFocusLocked(false);
+    
+    // Cancel any scheduled local notifications
+    cancelFocusTimerNotification().catch(error => {
+      console.warn('Failed to cancel focus timer notification:', error);
+    });
   };
 
   const handlePlayPause = () => {
     if (!isBreak && !isRunning) {
-      // Starting a work session - offer focus mode
+      // Starting a work session - offer focus mode and schedule notification
       setIsFocusLocked(true);
+      
+      // Schedule local notification for timer completion
+      const durationMinutes = Math.ceil(timeLeft / 60);
+      scheduleFocusTimerNotification(durationMinutes).catch(error => {
+        console.warn('Failed to schedule focus timer notification:', error);
+      });
+    } else if (isRunning) {
+      // Pausing - cancel local notification
+      cancelFocusTimerNotification().catch(error => {
+        console.warn('Failed to cancel focus timer notification:', error);
+      });
+    } else {
+      // Resuming - reschedule notification
+      const durationMinutes = Math.ceil(timeLeft / 60);
+      scheduleFocusTimerNotification(durationMinutes).catch(error => {
+        console.warn('Failed to schedule focus timer notification:', error);
+      });
     }
+    
     setIsRunning(!isRunning);
   };
 
@@ -75,6 +98,11 @@ export const FocusTimer: React.FC = () => {
     setTimeLeft(workTime);
     setIsRunning(false);
     setIsFocusLocked(false);
+    
+    // Cancel any scheduled notifications
+    cancelFocusTimerNotification().catch(error => {
+      console.warn('Failed to cancel focus timer notification:', error);
+    });
   };
 
   const progress = ((isBreak ? breakTime : workTime) - timeLeft) / (isBreak ? breakTime : workTime) * 100;
@@ -228,7 +256,7 @@ export const FocusTimer: React.FC = () => {
       
       <div className="mt-4 bg-blue-50 p-3 rounded-lg">
         <p className="text-xs text-blue-700 text-center">
-          🔔 Timer completion alerts use in-app sounds only
+          🔔 Timer alerts use in-app sounds and local notifications (native app only)
         </p>
       </div>
     </div>
