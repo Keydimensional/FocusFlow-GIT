@@ -16,7 +16,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [retryQueueSize, setRetryQueueSize] = useState(0);
-  const { user, signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const { user, signOut, loading: authLoading } = useAuth();
   const { isCloudSyncAvailable, retryCloudSync, dataLoadError, retryDataLoad } = useApp();
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -45,12 +46,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      setShowAccountMenu(false);
-    } catch (error) {
-      console.error('Sign out error:', error);
+    console.log('🔐 LAYOUT: Sign out button clicked');
+    
+    if (isSigningOut || authLoading) {
+      console.log('🔐 LAYOUT: Sign out already in progress or auth loading');
+      return;
     }
+    
+    setIsSigningOut(true);
+    setShowAccountMenu(false);
+    
+    console.log('🔐 LAYOUT: Calling signOut function...');
+    
+    // Call signOut - it will handle everything including the redirect
+    await signOut();
+    
+    // Note: We don't reset isSigningOut here because the page will redirect
+    // If for some reason the redirect doesn't work, the auth state listener will handle it
   };
 
   const getDisplayName = () => {
@@ -124,7 +136,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="relative" ref={accountMenuRef}>
                 <button
                   onClick={() => setShowAccountMenu(!showAccountMenu)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                  disabled={isSigningOut || authLoading}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-medium text-sm">
                     {getInitials()}
@@ -171,7 +184,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                               retryCloudSync();
                               setShowAccountMenu(false);
                             }}
-                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors"
+                            disabled={isSigningOut || authLoading}
+                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
                           >
                             <RefreshCw className="w-4 h-4" />
                             {retryQueueSize > 0 ? `Retry Sync (${retryQueueSize} pending)` : 'Retry Cloud Sync'}
@@ -183,7 +197,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             setShowSettings(true);
                             setShowAccountMenu(false);
                           }}
-                          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          disabled={isSigningOut || authLoading}
+                          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
                           <Settings className="w-4 h-4" />
                           Dashboard Settings
@@ -191,10 +206,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         
                         <button
                           onClick={handleSignOut}
-                          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          disabled={isSigningOut || authLoading}
+                          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
                           <LogOut className="w-4 h-4" />
-                          Sign Out
+                          {isSigningOut ? 'Signing out...' : 'Sign Out'}
                         </button>
                       </div>
                     </motion.div>
@@ -217,7 +233,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
               <button
                 onClick={retryDataLoad}
-                className="flex items-center gap-1 px-3 py-1 text-sm text-yellow-700 hover:text-yellow-800 hover:bg-yellow-100 rounded-lg transition-colors"
+                disabled={authLoading}
+                className="flex items-center gap-1 px-3 py-1 text-sm text-yellow-700 hover:text-yellow-800 hover:bg-yellow-100 rounded-lg transition-colors disabled:opacity-50"
               >
                 <RefreshCw className="w-4 h-4" />
                 Retry
@@ -254,11 +271,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </footer>
 
-      {/* Settings button - only show if account menu is not visible */}
-      {!showAccountMenu && (
+      {/* Settings button - show when not signing out and account menu is closed */}
+      {!isSigningOut && !showAccountMenu && (
         <button
           onClick={() => setShowSettings(true)}
-          className="fixed bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-shadow duration-200 text-gray-600 hover:text-purple-600"
+          disabled={authLoading}
+          className="fixed bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-shadow duration-200 text-gray-600 hover:text-purple-600 disabled:opacity-50"
         >
           <Settings className="w-6 h-6" />
         </button>

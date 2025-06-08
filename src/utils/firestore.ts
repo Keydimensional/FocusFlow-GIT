@@ -1,19 +1,21 @@
 import { doc, getDoc, setDoc, onSnapshot, enableNetwork, disableNetwork } from 'firebase/firestore';
 import { auth, getDb, isFirestoreAvailable, resetFirestoreInit } from '../firebase';
 import { AppState } from '../types';
+import { clearUserData, clearAllBrowserData } from './storage';
 import debounce from 'lodash/debounce';
 
-const CACHE_KEY = 'focusflow_cache';
-const RETRY_QUEUE_KEY = 'focusflow_retry_queue';
-const CONNECTION_STATE_KEY = 'focusflow_connection_state';
+const getCacheKey = (userId?: string) => userId ? `focusflow_cache_${userId}` : 'focusflow_cache_guest';
+const getRetryQueueKey = (userId?: string) => userId ? `focusflow_retry_queue_${userId}` : 'focusflow_retry_queue_guest';
+const getConnectionStateKey = (userId?: string) => userId ? `focusflow_connection_state_${userId}` : 'focusflow_connection_state_guest';
 
 let unsubscribeSnapshot: (() => void) | null = null;
-let memoryCache: { data: AppState; timestamp: number } | null = null;
+let memoryCache: { data: AppState; timestamp: number; userId?: string } | null = null;
 let cloudSyncDisabled = false;
 let isAdBlockerDetected = false;
 let retryQueue: Array<{ uid: string; data: AppState; timestamp: number }> = [];
 let connectionState: 'online' | 'offline' | 'blocked' = 'online';
 let lastConnectionTest = 0;
+let currentUserId: string | null = null;
 
 // Toast notification system
 let showToast: ((message: string, type: 'error' | 'warning' | 'success') => void) | null = null;
@@ -68,10 +70,11 @@ const validateAppState = (data: any): AppState => {
   return validated as AppState;
 };
 
-// Load connection state
-const loadConnectionState = () => {
+// Load connection state for specific user
+const loadConnectionState = (userId?: string) => {
   try {
-    const stored = localStorage.getItem(CONNECTION_STATE_KEY);
+    const key = getConnectionStateKey(userId);
+    const stored = localStorage.getItem(key);
     if (stored) {
       const { state, timestamp } = JSON.parse(stored);
       // Use cached state if less than 5 minutes old
@@ -88,10 +91,11 @@ const loadConnectionState = () => {
   }
 };
 
-const saveConnectionState = (state: 'online' | 'offline' | 'blocked') => {
+const saveConnectionState = (state: 'online' | 'offline' | 'blocked', userId?: string) => {
   try {
     connectionState = state;
-    localStorage.setItem(CONNECTION_STATE_KEY, JSON.stringify({
+    const key = getConnectionStateKey(userId);
+    localStorage.setItem(key, JSON.stringify({
       state,
       timestamp: Date.now()
     }));
@@ -100,16 +104,17 @@ const saveConnectionState = (state: 'online' | 'offline' | 'blocked') => {
   }
 };
 
-// Load retry queue from storage
-const loadRetryQueue = () => {
+// Load retry queue from storage for specific user
+const loadRetryQueue = (userId?: string) => {
   try {
-    const stored = localStorage.getItem(RETRY_QUEUE_KEY);
+    const key = getRetryQueueKey(userId);
+    const stored = localStorage.getItem(key);
     if (stored) {
       retryQueue = JSON.parse(stored);
       // Clean old entries (older than 24 hours)
       const cutoff = Date.now() - 24 * 60 * 60 * 1000;
       retryQueue = retryQueue.filter(item => item.timestamp > cutoff);
-      saveRetryQueue();
+      saveRetryQueue(userId);
     }
   } catch (error) {
     console.warn('Failed to load retry queue:', error);
@@ -117,9 +122,10 @@ const loadRetryQueue = () => {
   }
 };
 
-const saveRetryQueue = () => {
+const saveRetryQueue = (userId?: string) => {
   try {
-    localStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(retryQueue));
+    const key = getRetryQueueKey(userId);
+    localStorage.setItem(key, JSON.stringify(retryQueue));
   } catch (error) {
     console.warn('Failed to save retry queue:', error);
   }
@@ -131,7 +137,7 @@ const addToRetryQueue = (uid: string, data: AppState) => {
   if (retryQueue.length > 10) {
     retryQueue = retryQueue.slice(-10);
   }
-  saveRetryQueue();
+  saveRetryQueue(uid);
 };
 
 // Test Firestore connection
@@ -148,7 +154,7 @@ const testFirestoreConnection = async (): Promise<boolean> => {
   try {
     const db = await getDb();
     if (!db || !auth.currentUser) {
-      saveConnectionState('offline');
+      saveConnectionState('offline', currentUserId || undefined);
       return false;
     }
 
@@ -160,7 +166,7 @@ const testFirestoreConnection = async (): Promise<boolean> => {
 
     await Promise.race([testPromise, timeoutPromise]);
     
-    saveConnectionState('online');
+    saveConnectionState('online', currentUserId || undefined);
     cloudSyncDisabled = false;
     isAdBlockerDetected = false;
     return true;
@@ -169,12 +175,12 @@ const testFirestoreConnection = async (): Promise<boolean> => {
     console.warn('🔍 Firestore connection test failed:', error);
     
     if (detectAdBlocker(error)) {
-      saveConnectionState('blocked');
+      saveConnectionState('blocked', currentUserId || undefined);
       isAdBlockerDetected = true;
       cloudSyncDisabled = true;
       return false;
     } else {
-      saveConnectionState('offline');
+      saveConnectionState('offline', currentUserId || undefined);
       return false;
     }
   }
@@ -194,7 +200,7 @@ const processRetryQueue = async () => {
   
   const itemsToRetry = [...retryQueue];
   retryQueue = [];
-  saveRetryQueue();
+  saveRetryQueue(currentUserId || undefined);
 
   let successCount = 0;
   
@@ -212,10 +218,6 @@ const processRetryQueue = async () => {
     displayToast(`${successCount} sync operation${successCount > 1 ? 's' : ''} completed!`, 'success');
   }
 };
-
-// Initialize
-loadConnectionState();
-loadRetryQueue();
 
 // Check for ad blocker by detecting blocked requests
 const detectAdBlocker = (error: any): boolean => {
@@ -279,7 +281,7 @@ const debouncedSave = debounce(async (uid: string, saveData: any) => {
     // Check if this is an ad blocker issue
     if (detectAdBlocker(error)) {
       isAdBlockerDetected = true;
-      saveConnectionState('blocked');
+      saveConnectionState('blocked', currentUserId || undefined);
       
       if (!cloudSyncDisabled) {
         displayToast(
@@ -301,7 +303,7 @@ const debouncedSave = debounce(async (uid: string, saveData: any) => {
       );
       
     } else if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
-      saveConnectionState('offline');
+      saveConnectionState('offline', currentUserId || undefined);
       displayToast(
         'Cloud service temporarily unavailable. Will retry automatically.',
         'warning'
@@ -322,44 +324,48 @@ const debouncedSave = debounce(async (uid: string, saveData: any) => {
   }
 }, 3000);
 
-const cacheData = (data: AppState) => {
+const cacheData = (data: AppState, userId?: string) => {
   // Validate data before caching
   const validatedData = validateAppState(data);
-  const cache = { data: validatedData, timestamp: Date.now() };
+  const cache = { data: validatedData, timestamp: Date.now(), userId };
   
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    const cacheKey = getCacheKey(userId);
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
   } catch (e) {
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      const cacheKey = getCacheKey(userId);
+      sessionStorage.setItem(cacheKey, JSON.stringify(cache));
     } catch (e) {
       memoryCache = cache;
     }
   }
 };
 
-const loadCache = (): AppState | null => {
+const loadCache = (userId?: string): AppState | null => {
   const MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours
   
   try {
-    const localData = localStorage.getItem(CACHE_KEY);
+    const cacheKey = getCacheKey(userId);
+    const localData = localStorage.getItem(cacheKey);
     if (localData) {
-      const { data, timestamp } = JSON.parse(localData);
-      if (Date.now() - timestamp < MAX_CACHE_AGE) {
+      const { data, timestamp, userId: cachedUserId } = JSON.parse(localData);
+      if (Date.now() - timestamp < MAX_CACHE_AGE && cachedUserId === userId) {
         return validateAppState(data);
       }
     }
   } catch (e) {
     try {
-      const sessionData = sessionStorage.getItem(CACHE_KEY);
+      const cacheKey = getCacheKey(userId);
+      const sessionData = sessionStorage.getItem(cacheKey);
       if (sessionData) {
-        const { data, timestamp } = JSON.parse(sessionData);
-        if (Date.now() - timestamp < MAX_CACHE_AGE) {
+        const { data, timestamp, userId: cachedUserId } = JSON.parse(sessionData);
+        if (Date.now() - timestamp < MAX_CACHE_AGE && cachedUserId === userId) {
           return validateAppState(data);
         }
       }
     } catch (e) {
-      if (memoryCache && Date.now() - memoryCache.timestamp < MAX_CACHE_AGE) {
+      if (memoryCache && Date.now() - memoryCache.timestamp < MAX_CACHE_AGE && memoryCache.userId === userId) {
         return validateAppState(memoryCache.data);
       }
     }
@@ -375,7 +381,7 @@ export const saveUserData = async (uid: string, data: AppState): Promise<void> =
 
   try {
     // Always cache data first for immediate response
-    cacheData(data);
+    cacheData(data, uid);
     
     // Try cloud sync if not disabled and Firestore is available
     if (!cloudSyncDisabled && isFirestoreAvailable()) {
@@ -387,13 +393,20 @@ export const saveUserData = async (uid: string, data: AppState): Promise<void> =
   } catch (error) {
     console.error('💾 Save error:', error);
     // Ensure data is cached even if cloud sync fails
-    cacheData(data);
+    cacheData(data, uid);
   }
 };
 
 export const loadUserData = async (uid: string): Promise<AppState | null> => {
   if (!uid) {
     return loadCache();
+  }
+
+  // Update current user context
+  if (currentUserId !== uid) {
+    currentUserId = uid;
+    loadConnectionState(uid);
+    loadRetryQueue(uid);
   }
 
   // Clean up any existing listener
@@ -404,13 +417,13 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
 
   // Return cached data immediately if cloud sync is disabled or Firestore unavailable
   if (cloudSyncDisabled || !isFirestoreAvailable()) {
-    return loadCache();
+    return loadCache(uid);
   }
 
   try {
     const db = await getDb();
     if (!db || !auth.currentUser || auth.currentUser.uid !== uid) {
-      return loadCache();
+      return loadCache(uid);
     }
 
     const userDocRef = doc(db, 'users', uid);
@@ -419,7 +432,7 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
     const syncPromise = new Promise<AppState | null>((resolve) => {
       const timeout = setTimeout(() => {
         console.warn('⏰ Cloud sync timeout, using cached data');
-        resolve(loadCache());
+        resolve(loadCache(uid));
       }, 10000); // 10 second timeout
 
       unsubscribeSnapshot = onSnapshot(
@@ -429,10 +442,10 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
             clearTimeout(timeout);
             if (doc.exists()) {
               const data = validateAppState(doc.data());
-              cacheData(data);
+              cacheData(data, uid);
               resolve(data);
             } else {
-              resolve(loadCache());
+              resolve(loadCache(uid));
             }
           },
           error: (error) => {
@@ -441,7 +454,7 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
             
             if (detectAdBlocker(error)) {
               isAdBlockerDetected = true;
-              saveConnectionState('blocked');
+              saveConnectionState('blocked', uid);
               if (!cloudSyncDisabled) {
                 displayToast(
                   'Real-time sync blocked. Try disabling ad blockers for this app.',
@@ -457,14 +470,14 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
               );
             }
             
-            resolve(loadCache());
+            resolve(loadCache(uid));
           }
         }
       );
     });
 
     // Try cache first for immediate response
-    const cached = loadCache();
+    const cached = loadCache(uid);
     if (cached) {
       // Return cached data immediately, but still set up sync in background
       syncPromise.catch(() => {}); // Ignore sync errors
@@ -479,7 +492,7 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
     
     if (detectAdBlocker(error)) {
       isAdBlockerDetected = true;
-      saveConnectionState('blocked');
+      saveConnectionState('blocked', uid);
       displayToast(
         'Data loading blocked. Try disabling ad blockers for this app.',
         'warning'
@@ -488,32 +501,30 @@ export const loadUserData = async (uid: string): Promise<AppState | null> => {
       cloudSyncDisabled = true;
     }
     
-    return loadCache();
+    return loadCache(uid);
   }
 };
 
-export const cleanup = () => {
+export const cleanup = async () => {
+  console.log('🧹 Starting cleanup process');
+  
   if (unsubscribeSnapshot) {
     unsubscribeSnapshot();
     unsubscribeSnapshot = null;
   }
   
+  // Clear all browser data on logout
+  await clearAllBrowserData();
+  
+  // Reset all state
   cloudSyncDisabled = false;
   isAdBlockerDetected = false;
   retryQueue = [];
   connectionState = 'online';
+  memoryCache = null;
+  currentUserId = null;
   
-  try {
-    localStorage.removeItem(CACHE_KEY);
-    localStorage.removeItem(RETRY_QUEUE_KEY);
-    localStorage.removeItem(CONNECTION_STATE_KEY);
-  } catch (e) {
-    try {
-      sessionStorage.removeItem(CACHE_KEY);
-    } catch (e) {
-      memoryCache = null;
-    }
-  }
+  console.log('✅ Cleanup completed');
 };
 
 export const isCloudSyncAvailable = async (): Promise<boolean> => {
@@ -578,7 +589,7 @@ export const getRetryQueueSize = (): number => {
 
 export const clearRetryQueue = () => {
   retryQueue = [];
-  saveRetryQueue();
+  saveRetryQueue(currentUserId || undefined);
 };
 
 // Auto-retry mechanism - try to process queue when network comes back online

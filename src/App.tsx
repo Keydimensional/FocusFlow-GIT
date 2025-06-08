@@ -54,15 +54,20 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // CRITICAL: If no user, show login/auth routes only - no redirects here
   if (!user) {
     return (
       <Routes>
         <Route path="/finishSignIn" element={<FinishSignIn />} />
+        <Route path="/signin" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Login />} />
         <Route path="*" element={<Login />} />
       </Routes>
     );
   }
 
+  // User is authenticated, show main app
   return (
     <AppProvider>
       <AppContentWithTutorial />

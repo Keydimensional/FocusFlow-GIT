@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, ArrowRight } from 'lucide-react';
+import { Target, ArrowRight, Edit2 } from 'lucide-react';
 
 export const DailyFocus: React.FC = () => {
   const { addFocus, todaysFocus, addGoal } = useApp();
   const [text, setText] = useState('');
   const [showAnimation, setShowAnimation] = useState(false);
   const [showGoalPrompt, setShowGoalPrompt] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Check if the focus is from today
   const isFocusFromToday = () => {
@@ -21,7 +22,7 @@ export const DailyFocus: React.FC = () => {
     );
   };
 
-  // Clear focus at midnight
+  // Clear focus at midnight and check for daily reset
   useEffect(() => {
     const checkDate = () => {
       if (todaysFocus && !isFocusFromToday()) {
@@ -51,11 +52,19 @@ export const DailyFocus: React.FC = () => {
     
     addFocus(text.trim());
     setText('');
+    setIsEditing(false);
     setShowAnimation(true);
     setTimeout(() => {
       setShowAnimation(false);
       setShowGoalPrompt(true);
     }, 1500);
+  };
+
+  const handleEdit = () => {
+    if (todaysFocus) {
+      setText(todaysFocus.text);
+      setIsEditing(true);
+    }
   };
 
   const handleAddGoal = () => {
@@ -78,9 +87,18 @@ export const DailyFocus: React.FC = () => {
           <Target className="w-5 h-5 text-purple-500" />
           Today's Focus
         </h2>
+        {validFocus && !isEditing && (
+          <button
+            onClick={handleEdit}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit
+          </button>
+        )}
       </div>
 
-      {!validFocus ? (
+      {!validFocus || isEditing ? (
         <div className="space-y-4">
           <div className="bg-purple-50 p-4 rounded-lg">
             <p className="text-purple-900 font-medium mb-2">What's your main goal for today?</p>
@@ -96,12 +114,24 @@ export const DailyFocus: React.FC = () => {
               placeholder="e.g., Complete the project presentation"
               autoFocus
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setText('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
               <button
                 type="submit"
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
               >
-                Set Focus
+                {isEditing ? 'Update Focus' : 'Set Focus'}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

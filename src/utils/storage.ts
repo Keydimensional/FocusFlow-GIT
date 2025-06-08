@@ -1,6 +1,13 @@
 import { AppState } from '../types';
 
-const STORAGE_KEY = 'focusflow_state';
+// User-specific storage keys
+const getStorageKey = (userId?: string) => {
+  return userId ? `focusflow_state_${userId}` : 'focusflow_state_guest';
+};
+
+const getUserSpecificKey = (key: string, userId?: string) => {
+  return userId ? `${key}_${userId}` : `${key}_guest`;
+};
 
 const defaultState: AppState = {
   moods: [],
@@ -32,25 +39,161 @@ const defaultState: AppState = {
   ],
 };
 
-export const saveState = (state: AppState): void => {
+// Clear all user-specific data from localStorage
+export const clearUserData = (userId?: string): void => {
   try {
-    // Check if localStorage is available
+    if (typeof Storage === 'undefined') return;
+
+    const keysToRemove: string[] = [];
+    
+    if (userId) {
+      // Clear specific user's data
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes(`_${userId}`) || key.endsWith(`_${userId}`))) {
+          keysToRemove.push(key);
+        }
+      }
+    } else {
+      // Clear all app-related data (fallback)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('focusflow_') ||
+          key.startsWith('brainbounce_') ||
+          key.includes('lastFocusCheck_') ||
+          key.includes('hasSeenTutorial_') ||
+          key.includes('username_skipped_')
+        )) {
+          keysToRemove.push(key);
+        }
+      }
+    }
+
+    // Remove all identified keys
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+    });
+
+    console.log(`🧹 Cleared ${keysToRemove.length} user-specific storage items`);
+  } catch (error) {
+    console.error('Failed to clear user data:', error);
+  }
+};
+
+// Clear all browser storage (localStorage, sessionStorage, IndexedDB, Cache)
+export const clearAllBrowserData = async (): Promise<void> => {
+  console.log('🧹 STORAGE: Starting comprehensive browser data cleanup...');
+  
+  try {
+    // Clear localStorage
+    if (typeof Storage !== 'undefined') {
+      const localStorageSize = localStorage.length;
+      localStorage.clear();
+      console.log(`🧹 STORAGE: Cleared localStorage (${localStorageSize} items)`);
+    }
+
+    // Clear sessionStorage
+    if (typeof sessionStorage !== 'undefined') {
+      const sessionStorageSize = sessionStorage.length;
+      sessionStorage.clear();
+      console.log(`🧹 STORAGE: Cleared sessionStorage (${sessionStorageSize} items)`);
+    }
+
+    // Clear IndexedDB
+    if (typeof indexedDB !== 'undefined') {
+      try {
+        const databases = await indexedDB.databases();
+        const deletePromises = databases.map(db => {
+          if (db.name) {
+            return new Promise<void>((resolve, reject) => {
+              const deleteReq = indexedDB.deleteDatabase(db.name!);
+              deleteReq.onsuccess = () => {
+                console.log(`🧹 STORAGE: Deleted IndexedDB database: ${db.name}`);
+                resolve();
+              };
+              deleteReq.onerror = () => reject(deleteReq.error);
+              deleteReq.onblocked = () => {
+                console.warn(`🧹 STORAGE: IndexedDB deletion blocked for: ${db.name}`);
+                resolve(); // Don't fail the whole process
+              };
+            });
+          }
+          return Promise.resolve();
+        });
+        
+        await Promise.allSettled(deletePromises);
+        console.log('🧹 STORAGE: IndexedDB cleanup completed');
+      } catch (error) {
+        console.warn('🧹 STORAGE: Failed to clear IndexedDB:', error);
+      }
+    }
+
+    // Clear Cache Storage
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        const deletePromises = cacheNames.map(cacheName => 
+          caches.delete(cacheName).then(success => {
+            if (success) {
+              console.log(`🧹 STORAGE: Deleted cache: ${cacheName}`);
+            }
+            return success;
+          })
+        );
+        
+        await Promise.allSettled(deletePromises);
+        console.log('🧹 STORAGE: Cache storage cleanup completed');
+      } catch (error) {
+        console.warn('🧹 STORAGE: Failed to clear cache storage:', error);
+      }
+    }
+
+    // Clear any Firebase Auth persistence
+    try {
+      // Clear any Firebase-related storage
+      const firebaseKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('firebase:') || key.includes('firebase'))) {
+          firebaseKeys.push(key);
+        }
+      }
+      firebaseKeys.forEach(key => localStorage.removeItem(key));
+      
+      if (firebaseKeys.length > 0) {
+        console.log(`🧹 STORAGE: Cleared ${firebaseKeys.length} Firebase storage items`);
+      }
+    } catch (error) {
+      console.warn('🧹 STORAGE: Failed to clear Firebase storage:', error);
+    }
+
+    console.log('✅ STORAGE: Comprehensive browser data cleanup completed');
+  } catch (error) {
+    console.error('❌ STORAGE: Failed to clear browser data:', error);
+  }
+};
+
+export const saveState = (state: AppState, userId?: string): void => {
+  try {
     if (typeof Storage === 'undefined') {
       console.warn('localStorage not available');
       return;
     }
 
+    const storageKey = getStorageKey(userId);
     const serializedState = JSON.stringify(state);
-    localStorage.setItem(STORAGE_KEY, serializedState);
-    console.log('State saved successfully');
+    localStorage.setItem(storageKey, serializedState);
+    console.log(`State saved successfully for user: ${userId || 'guest'}`);
   } catch (error) {
     console.error('Failed to save state:', error);
     
     // Try to clear some space and retry
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      const storageKey = getStorageKey(userId);
+      localStorage.removeItem(storageKey);
       const serializedState = JSON.stringify(state);
-      localStorage.setItem(STORAGE_KEY, serializedState);
+      localStorage.setItem(storageKey, serializedState);
       console.log('State saved successfully after clearing');
     } catch (retryError) {
       console.error('Failed to save state even after clearing:', retryError);
@@ -58,17 +201,18 @@ export const saveState = (state: AppState): void => {
   }
 };
 
-export const loadState = (): AppState => {
+export const loadState = (userId?: string): AppState => {
   try {
-    // Check if localStorage is available
     if (typeof Storage === 'undefined') {
       console.warn('localStorage not available, using default state');
       return defaultState;
     }
 
-    const serializedState = localStorage.getItem(STORAGE_KEY);
+    const storageKey = getStorageKey(userId);
+    const serializedState = localStorage.getItem(storageKey);
+    
     if (!serializedState) {
-      console.log('No saved state found, using default state');
+      console.log(`No saved state found for user: ${userId || 'guest'}, using default state`);
       return defaultState;
     }
 
@@ -133,14 +277,15 @@ export const loadState = (): AppState => {
       widgets: widgets, // Use the processed widgets array
     };
 
-    console.log('State loaded successfully with widget migration');
+    console.log(`State loaded successfully for user: ${userId || 'guest'} with widget migration`);
     return mergedState;
   } catch (error) {
     console.error('Failed to load state:', error);
     
     // Try to clear corrupted data and return default state
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      const storageKey = getStorageKey(userId);
+      localStorage.removeItem(storageKey);
       console.log('Cleared corrupted state, using default state');
     } catch (clearError) {
       console.error('Failed to clear corrupted state:', clearError);
@@ -148,4 +293,9 @@ export const loadState = (): AppState => {
     
     return defaultState;
   }
+};
+
+// Helper function to get user-specific keys for other components
+export const getUserStorageKey = (key: string, userId?: string): string => {
+  return getUserSpecificKey(key, userId);
 };

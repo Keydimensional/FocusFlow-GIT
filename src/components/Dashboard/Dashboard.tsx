@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MoodCheck } from '../Mood/MoodCheck';
 import { GoalList } from '../Goals/GoalList';
 import { StreakCounter } from '../Streak/StreakCounter';
@@ -10,7 +10,10 @@ import { BrainDump } from '../BrainDump/BrainDump';
 import { FocusTimer } from '../Timer/FocusTimer';
 import { MoodBoard } from '../MoodBoard/MoodBoard';
 import { ListsWidget } from '../Lists/ListsWidget';
+import { FocusModeOverlay } from '../Focus/FocusModeOverlay';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../Auth/AuthProvider';
+import { getUserStorageKey } from '../../utils/storage';
 
 const widgetEmojis = {
   dailyFocus: '🎯',
@@ -27,9 +30,68 @@ const widgetEmojis = {
 };
 
 export const Dashboard: React.FC = () => {
-  const { goals, reminders, widgets } = useApp();
+  const { goals, reminders, widgets, todaysFocus } = useApp();
+  const { user } = useAuth();
+  const [showFocusMode, setShowFocusMode] = useState(false);
+  const [hasCheckedFocusToday, setHasCheckedFocusToday] = useState(false);
+
   const activeGoals = goals.filter(goal => !goal.completed);
   const activeReminders = reminders.filter(reminder => !reminder.completed);
+
+  // Check if user needs to set today's focus
+  useEffect(() => {
+    if (!user || hasCheckedFocusToday) return;
+
+    const checkDailyFocus = () => {
+      const today = new Date();
+      const lastFocusCheckKey = getUserStorageKey('lastFocusCheck', user.uid);
+      const lastFocusCheck = localStorage.getItem(lastFocusCheckKey);
+      const todayString = today.toDateString();
+
+      // Check if we've already checked today
+      if (lastFocusCheck === todayString) {
+        setHasCheckedFocusToday(true);
+        return;
+      }
+
+      // Check if user has set focus for today
+      const hasTodaysFocus = todaysFocus && (() => {
+        const focusDate = new Date(todaysFocus.timestamp);
+        return (
+          today.getFullYear() === focusDate.getFullYear() &&
+          today.getMonth() === focusDate.getMonth() &&
+          today.getDate() === focusDate.getDate()
+        );
+      })();
+
+      if (!hasTodaysFocus) {
+        // Show focus mode overlay
+        setShowFocusMode(true);
+      }
+
+      // Mark that we've checked today
+      localStorage.setItem(lastFocusCheckKey, todayString);
+      setHasCheckedFocusToday(true);
+    };
+
+    // Small delay to ensure app is fully loaded
+    const timer = setTimeout(checkDailyFocus, 1000);
+    return () => clearTimeout(timer);
+  }, [user, todaysFocus, hasCheckedFocusToday]);
+
+  const handleFocusModeComplete = () => {
+    setShowFocusMode(false);
+  };
+
+  const handleFocusModeSkip = () => {
+    setShowFocusMode(false);
+    // Mark as checked so it doesn't show again today
+    if (user) {
+      const todayString = new Date().toDateString();
+      const lastFocusCheckKey = getUserStorageKey('lastFocusCheck', user.uid);
+      localStorage.setItem(lastFocusCheckKey, todayString);
+    }
+  };
 
   const getVisibleWidgets = (columnStart: number, columnEnd: number) => {
     return widgets
@@ -67,21 +129,33 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* First Column: Priority widgets (0-3) */}
-      <div className="space-y-6">
-        {getVisibleWidgets(0, 4).map(renderWidget)}
+    <>
+      {/* Main Dashboard Content */}
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-300 ${
+        showFocusMode ? 'blur-sm pointer-events-none' : ''
+      }`}>
+        {/* First Column: Priority widgets (0-3) */}
+        <div className="space-y-6">
+          {getVisibleWidgets(0, 4).map(renderWidget)}
+        </div>
+        
+        {/* Second Column: Secondary widgets (4-7) */}
+        <div className="space-y-6">
+          {getVisibleWidgets(4, 8).map(renderWidget)}
+        </div>
+        
+        {/* Third Column: Tertiary widgets (8-11) */}
+        <div className="space-y-6">
+          {getVisibleWidgets(8, 12).map(renderWidget)}
+        </div>
       </div>
-      
-      {/* Second Column: Secondary widgets (4-7) */}
-      <div className="space-y-6">
-        {getVisibleWidgets(4, 8).map(renderWidget)}
-      </div>
-      
-      {/* Third Column: Tertiary widgets (8-11) - Lists positioned after Mood History */}
-      <div className="space-y-6">
-        {getVisibleWidgets(8, 12).map(renderWidget)}
-      </div>
-    </div>
+
+      {/* Focus Mode Overlay */}
+      <FocusModeOverlay
+        isVisible={showFocusMode}
+        onComplete={handleFocusModeComplete}
+        onSkip={handleFocusModeSkip}
+      />
+    </>
   );
 };

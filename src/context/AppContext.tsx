@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, Goal, Mood, Reminder, Habit, Widget, List, ListItem } from '../types';
-import { saveState, loadState } from '../utils/storage';
+import { saveState, loadState, getUserStorageKey, clearUserData } from '../utils/storage';
 import { formatDate, isConsecutiveDay, isToday, calculateStreak } from '../utils/dateUtils';
 import { useAuth } from '../components/Auth/AuthProvider';
 import debounce from 'lodash/debounce';
@@ -40,8 +40,6 @@ interface AppContextType extends AppState {
   setShowTutorial: (show: boolean) => void;
 }
 
-const AppContext = createContext<AppContextType | null>(null);
-
 // Safe ID generation for mobile compatibility
 const generateId = (): string => {
   try {
@@ -56,30 +54,63 @@ const generateId = (): string => {
   return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 };
 
+// Default state factory
+const createDefaultState = (): AppState => ({
+  moods: [],
+  goals: [],
+  reminders: [],
+  habits: [],
+  lists: [],
+  brainDump: [],
+  todaysFocus: null,
+  lastCheckIn: null,
+  streak: 0,
+  widgets: [
+    // First Column (0-3): Priority widgets
+    { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
+    { id: 'goalList', type: 'goalList', visible: true, order: 1 },
+    { id: 'focusTimer', type: 'focusTimer', visible: true, order: 2 },
+    { id: 'reminderList', type: 'reminderList', visible: true, order: 3 },
+    
+    // Second Column (4-7): Secondary widgets - balanced height
+    { id: 'streakCounter', type: 'streakCounter', visible: true, order: 4 },
+    { id: 'moodCheck', type: 'moodCheck', visible: true, order: 5 },
+    { id: 'habitTracker', type: 'habitTracker', visible: true, order: 6 },
+    { id: 'moodBoard', type: 'moodBoard', visible: true, order: 7 },
+    
+    // Third Column (8-11): Tertiary widgets - optimized for visual balance
+    { id: 'moodHistory', type: 'moodHistory', visible: true, order: 8 },
+    { id: 'lists', type: 'lists', visible: true, order: 9 },
+    { id: 'brainDump', type: 'brainDump', visible: true, order: 10 },
+  ],
+});
+
+const AppContext = createContext<AppContextType | null>(null);
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, syncUserData, loadUserData, isCloudSyncAvailable, retryCloudSync } = useAuth();
-  const [state, setState] = useState<AppState>(() => {
-    try {
-      const loadedState = loadState();
-      console.log('🔄 Initial state loaded, widgets:', loadedState.widgets.map(w => ({ type: w.type, visible: w.visible })));
-      return loadedState;
-    } catch (error) {
-      console.error('Failed to load initial state:', error);
-      return loadState(); // loadState has its own error handling
-    }
-  });
-  const [isInitialized, setIsInitialized] = useState(false);
+  const { user, syncUserData, loadUserData, isCloudSyncAvailable, retryCloudSync, loading: authLoading } = useAuth();
+  
+  // Initialize with default state
+  const [state, setState] = useState<AppState>(createDefaultState);
   const [dataLoadError, setDataLoadError] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Debounced save function to prevent too frequent writes
-  const debouncedSave = debounce((newState: AppState) => {
+  const debouncedSave = debounce((newState: AppState, userId?: string) => {
     try {
-      // Always save to local storage first
-      saveState(newState);
+      // CRITICAL: Check if user is still the same before saving
+      if (userId && user?.uid !== userId) {
+        console.log('🔐 User changed during save, skipping');
+        return;
+      }
       
-      // Sync to Firestore if user is authenticated
-      if (user) {
+      // Always save to local storage first (with user-specific key)
+      saveState(newState, userId);
+      
+      // Sync to Firestore if user is authenticated and still the same user
+      if (userId && user?.uid === userId) {
         syncUserData(newState).catch(error => {
           console.error('Failed to sync to Firestore:', error);
           // Don't throw error as local save should have succeeded
@@ -91,12 +122,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, 2000);
 
-  // Load user data when user signs in
+  // Handle user changes and data loading
   useEffect(() => {
+    // Don't initialize until auth loading is complete
+    if (authLoading) {
+      return;
+    }
+
     const initializeUserData = async () => {
-      if (user && !isInitialized) {
-        setDataLoadError(null);
-        
+      const userId = user?.uid || null;
+      
+      // If user hasn't changed, don't reinitialize
+      if (currentUserId === userId && isInitialized) {
+        return;
+      }
+      
+      console.log(`🔄 User context changed from ${currentUserId} to ${userId}`);
+      
+      // Clear previous user's data if switching users
+      if (currentUserId && currentUserId !== userId) {
+        console.log('🧹 Clearing previous user data...');
+        clearUserData(currentUserId);
+      }
+      
+      setCurrentUserId(userId);
+      setDataLoadError(null);
+      
+      if (userId) {
+        // User signed in - load their data
         try {
           console.log('🔄 Loading user data...');
           const userData = await loadUserData();
@@ -126,8 +179,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             userData.widgets = widgets;
             setState(userData);
           } else {
-            console.log('📱 No cloud data found, using local storage');
-            // Keep current local state which already has proper widget setup
+            console.log('📱 No cloud data found, loading user-specific local storage');
+            // Load user-specific local state
+            const localState = loadState(userId);
+            setState(localState);
           }
           
         } catch (error: any) {
@@ -144,33 +199,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           setDataLoadError(errorMessage);
           
-          // Continue with local state
-        } finally {
-          setIsInitialized(true);
+          // Continue with user-specific local state
+          const localState = loadState(userId);
+          setState(localState);
         }
-      } else if (!user && isInitialized) {
-        // User signed out, reset to local state
-        console.log('🔄 User signed out, resetting to local state');
-        setIsInitialized(false);
-        setDataLoadError(null);
-        setState(loadState());
+      } else {
+        // No user - load guest state
+        console.log('🔄 No user, loading guest state');
+        const guestState = loadState();
+        setState(guestState);
       }
+      
+      setIsInitialized(true);
     };
 
     initializeUserData();
-  }, [user, loadUserData, isInitialized]);
+  }, [user, loadUserData, authLoading]);
 
-  // Save state changes
+  // Save state changes with user-specific storage
   useEffect(() => {
-    if (isInitialized || !user) {
+    if (isInitialized && !authLoading) {
       try {
-        debouncedSave(state);
+        debouncedSave(state, currentUserId || undefined);
       } catch (error) {
         console.error('Failed to schedule save:', error);
         setDataLoadError('Failed to save data. Please try again.');
       }
     }
-  }, [state, isInitialized, user, debouncedSave]);
+  }, [state, isInitialized, currentUserId, authLoading, debouncedSave]);
 
   // Check daily interactions
   useEffect(() => {
@@ -637,24 +693,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     resetWidgets: () => {
       try {
         // Get fresh default state with optimized layout and ALL widgets visible
-        const defaultWidgets = [
-          // First Column (0-3): Priority widgets
-          { id: 'dailyFocus', type: 'dailyFocus', visible: true, order: 0 },
-          { id: 'goalList', type: 'goalList', visible: true, order: 1 },
-          { id: 'focusTimer', type: 'focusTimer', visible: true, order: 2 },
-          { id: 'reminderList', type: 'reminderList', visible: true, order: 3 },
-          
-          // Second Column (4-7): Secondary widgets - balanced height
-          { id: 'streakCounter', type: 'streakCounter', visible: true, order: 4 },
-          { id: 'moodCheck', type: 'moodCheck', visible: true, order: 5 },
-          { id: 'habitTracker', type: 'habitTracker', visible: true, order: 6 },
-          { id: 'moodBoard', type: 'moodBoard', visible: true, order: 7 },
-          
-          // Third Column (8-11): Tertiary widgets - optimized for visual balance
-          { id: 'moodHistory', type: 'moodHistory', visible: true, order: 8 },
-          { id: 'lists', type: 'lists', visible: true, order: 9 },
-          { id: 'brainDump', type: 'brainDump', visible: true, order: 10 },
-        ] as Widget[];
+        const defaultWidgets = createDefaultState().widgets;
         
         console.log('🔄 Resetting widgets to default with Lists visible:', defaultWidgets.find(w => w.type === 'lists'));
         
