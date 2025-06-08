@@ -1,9 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebase';
-import { saveUserData, loadUserData, cleanup, isCloudSyncAvailable, retryCloudSync } from '../../utils/firestore';
+import {
+  saveUserData,
+  loadUserData,
+  cleanup,
+  isCloudSyncAvailable,
+  retryCloudSync,
+} from '../../utils/firestore';
 import { AppState } from '../../types';
-import { loadState, clearUserData, clearAllBrowserData } from '../../utils/storage';
+import {
+  loadState,
+  clearUserData,
+  clearAllBrowserData,
+} from '../../utils/storage';
 
 interface AuthContextType {
   user: User | null;
@@ -13,211 +23,136 @@ interface AuthContextType {
   loadUserData: () => Promise<AppState | null>;
   isCloudSyncAvailable: () => boolean;
   retryCloudSync: () => Promise<boolean>;
+  showReloadPrompt: boolean;
+  confirmReload: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+if (typeof window !== 'undefined') {
+  localStorage.removeItem('preventAutoReauth');
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [cloudSyncAvailable, setCloudSyncAvailable] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showReloadPrompt, setShowReloadPrompt] = useState(false);
 
   useEffect(() => {
-    console.log('🔐 Setting up auth state listener');
-    
-    const unsubscribe = onAuthStateChanged(
-      auth, 
-      async (user) => {
-        console.log('🔐 Auth state changed:', user ? `signed in as ${user.email}` : 'signed out');
-        
-        // CRITICAL: Only redirect if we're not already on auth pages and not currently signing out
-        if (!user && !loading && !isSigningOut) {
-          const currentPath = window.location.pathname;
-          const isOnAuthPage = currentPath === '/signin' || 
-                              currentPath === '/login' || 
-                              currentPath === '/finishSignIn' ||
-                              currentPath === '/';
-          
-          console.log('🔐 Current path:', currentPath, 'Is on auth page:', isOnAuthPage);
-          
-          // Only redirect if we're not already on an auth page
-          if (!isOnAuthPage) {
-            console.log('🔐 User signed out detected - initiating cleanup and redirect');
-            
-            // Clear all browser data immediately
-            await clearAllBrowserData();
-            
-            // Force hard redirect to signin page
-            console.log('🔐 Forcing hard redirect to /signin');
-            window.location.href = '/signin';
-            return;
-          } else {
-            console.log('🔐 Already on auth page, skipping redirect');
-          }
-        }
-        
-        setUser(user);
-        
-        if (user) {
-          // Check cloud sync availability with timeout
-          try {
-            const checkSyncPromise = isCloudSyncAvailable();
-            const timeoutPromise = new Promise<boolean>((resolve) => {
-              setTimeout(() => resolve(false), 5000); // 5 second timeout
-            });
-            
-            const available = await Promise.race([checkSyncPromise, timeoutPromise]);
-            setCloudSyncAvailable(available);
-            
-            if (!available) {
-              console.warn('⚠️ Cloud sync not available, using local storage');
-            } else {
-              console.log('✅ Cloud sync available');
-            }
-          } catch (error) {
-            console.warn('⚠️ Could not check cloud sync availability:', error);
-            setCloudSyncAvailable(false);
-          }
-        } else {
+    const preventAutoReauth = localStorage.getItem('preventAutoReauth') === 'true';
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (preventAutoReauth || isSigningOut) return;
+
+      const currentPath = window.location.pathname;
+      const isOnAuthPage = ['/signin', '/login', '/finishSignIn', '/'].includes(currentPath);
+
+      if (!user && !loading && !isOnAuthPage) {
+        await clearAllBrowserData();
+        window.location.href = '/signin';
+        return;
+      }
+
+      setUser(user);
+
+      if (user) {
+        try {
+          const checkSyncPromise = isCloudSyncAvailable();
+          const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
+          const available = await Promise.race([checkSyncPromise, timeoutPromise]);
+          setCloudSyncAvailable(available);
+        } catch {
           setCloudSyncAvailable(false);
         }
-        
-        setLoading(false);
-      },
-      (error) => {
-        console.error('🔐 Auth state change error:', error);
-        setLoading(false);
+      } else {
         setCloudSyncAvailable(false);
       }
-    );
 
-    return () => {
-      console.log('🔐 Cleaning up auth state listener');
-      unsubscribe();
-    };
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [loading, isSigningOut]);
 
   const signOut = async () => {
-    console.log('🔐 AUTH PROVIDER: Starting comprehensive sign out process...');
-    
-    // Prevent any further operations
+    console.log('🚪 Starting sign out process...');
     setIsSigningOut(true);
     setCloudSyncAvailable(false);
-    
+
     try {
-      // Get current user ID before signing out
       const currentUserId = user?.uid;
-      console.log('🔐 AUTH PROVIDER: Current user ID:', currentUserId);
-      
-      // Step 1: Clear all user-specific data immediately
-      if (currentUserId) {
-        console.log('🧹 AUTH PROVIDER: Clearing user-specific data...');
-        clearUserData(currentUserId);
-      }
-      
-      // Step 2: Clear all browser storage completely
-      console.log('🧹 AUTH PROVIDER: Clearing all browser storage...');
+      if (currentUserId) clearUserData(currentUserId);
+
       await clearAllBrowserData();
-      
-      // Step 3: Clean up Firestore connections and cache
-      console.log('🧹 AUTH PROVIDER: Cleaning up Firestore connections...');
       await cleanup();
-      
-      // Step 4: Sign out from Firebase (this clears the session)
-      console.log('🔐 AUTH PROVIDER: Signing out from Firebase...');
       await auth.signOut();
+
+      const deleteIndexedDB = (name: string) => new Promise<void>((resolve) => {
+        const tryDelete = (attempts = 5) => {
+          const deleteRequest = indexedDB.deleteDatabase(name);
+          deleteRequest.onsuccess = () => resolve();
+          deleteRequest.onerror = () => resolve();
+          deleteRequest.onblocked = () => {
+            if (attempts > 0) setTimeout(() => tryDelete(attempts - 1), 250);
+            else resolve();
+          };
+        };
+        tryDelete();
+      });
+
+      await deleteIndexedDB('firebaseLocalStorageDb');
+      await deleteIndexedDB('firebase-heartbeat-database');
+
+      localStorage.setItem('preventAutoReauth', 'true');
       
-      console.log('✅ AUTH PROVIDER: Firebase sign out completed');
+      console.log('✅ Sign out completed, showing reload prompt');
+      setShowReloadPrompt(true);
       
-      // Step 5: Force hard redirect to signin page
-      console.log('🔐 AUTH PROVIDER: Forcing hard redirect to /signin');
-      window.location.href = '/signin';
-      
-    } catch (error: any) {
-      console.error('❌ AUTH PROVIDER: Sign out error:', error);
-      
-      // Even if there are errors, force cleanup and redirect
-      try {
-        await clearAllBrowserData();
-        await cleanup();
-      } catch (cleanupError) {
-        console.error('❌ AUTH PROVIDER: Emergency cleanup error:', cleanupError);
-      }
-      
-      // Force redirect regardless of errors
-      console.warn('⚠️ AUTH PROVIDER: Sign out had errors, forcing emergency redirect');
+    } catch (error) {
+      console.error('❌ Sign out error:', error);
+      await clearAllBrowserData();
+      await cleanup();
       window.location.href = '/signin';
     }
   };
 
+  const confirmReload = () => {
+    console.log('🔄 User confirmed reload');
+    window.location.reload();
+  };
+
   const syncUserData = async (data: AppState) => {
-    // CRITICAL: Don't sync if signing out
-    if (isSigningOut) {
-      console.log('🔐 Skipping sync - signing out');
-      return;
-    }
-    
-    if (!user) {
-      console.warn('⚠️ Cannot sync data - user not authenticated');
-      return;
-    }
-    
+    if (isSigningOut || !user) return;
     try {
       await saveUserData(user.uid, data);
-    } catch (error) {
-      console.error('💾 Failed to sync user data:', error);
-      // Don't throw error as local save should have succeeded
+    } catch {
+      // error ignored
     }
   };
 
   const loadUserDataForUser = async (): Promise<AppState | null> => {
-    // CRITICAL: Don't load if signing out
-    if (isSigningOut) {
-      console.log('🔐 Skipping load - signing out');
-      return null;
-    }
-    
-    if (!user) {
-      console.warn('⚠️ Cannot load user data - user not authenticated');
-      return loadState();
-    }
-    
+    if (isSigningOut) return null;
+    if (!user) return loadState();
     try {
       const userData = await loadUserData(user.uid);
-      if (userData) {
-        console.log('✅ User data loaded successfully');
-        return userData;
-      } else {
-        console.log('📱 No cloud data found, using local storage');
-        return loadState(user.uid);
-      }
-    } catch (error) {
-      console.error('❌ Failed to load user data:', error);
+      return userData || loadState(user.uid);
+    } catch {
       return loadState(user.uid);
     }
   };
 
-  const checkCloudSyncAvailable = () => {
-    return cloudSyncAvailable && !!user && !loading && !isSigningOut;
-  };
+  const checkCloudSyncAvailable = () => cloudSyncAvailable && !!user && !loading && !isSigningOut;
 
   const handleRetryCloudSync = async (): Promise<boolean> => {
     if (!user || isSigningOut) return false;
-    
     try {
-      const success = await retryCloudSync();
-      
-      if (success) {
-        // Re-check availability after successful retry
-        const available = await isCloudSyncAvailable();
-        setCloudSyncAvailable(available);
-        return available;
-      }
-      
-      return false;
-    } catch (error) {
-      console.warn('⚠️ Cloud sync retry failed:', error);
+      await retryCloudSync();
+      const available = await isCloudSyncAvailable();
+      setCloudSyncAvailable(available);
+      return available;
+    } catch {
       setCloudSyncAvailable(false);
       return false;
     }
@@ -230,20 +165,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     syncUserData,
     loadUserData: loadUserDataForUser,
     isCloudSyncAvailable: checkCloudSyncAvailable,
-    retryCloudSync: handleRetryCloudSync
+    retryCloudSync: handleRetryCloudSync,
+    showReloadPrompt,
+    confirmReload,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };

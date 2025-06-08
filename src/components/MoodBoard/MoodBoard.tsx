@@ -84,12 +84,110 @@ const quotes = [
   "You're doing better than you think.",
   "You can move forward without rushing.",
   "You are allowed to make this easier for yourself.",
+  "Rest is not a reward. It's a right.",
+  "You don't have to be consistent to be committed.",
+  "Clarity comes after the pause.",
+  "You're allowed to unlearn urgency.",
+  "Softness is still strength.",
+  "Trying differently still counts.",
+  "You're not late. You're on your own clock.",
+  "Progress looks different every day.",
+  "Some days surviving is the success.",
+  "Your needs are not negotiable.",
+  "Focus is not a moral issue.",
+  "You are not a machine. You are a person.",
+  "You're allowed to need things more than once.",
+  "Permission beats pressure.",
+  "Regulation is not the same as repression.",
+  "Getting there slowly is still getting there.",
+  "You don't owe the world constant output.",
+  "Your pace is not a problem.",
+  "Let your brain be your brain.",
+  "You are not failing. You are adapting.",
+  "You don't have to explain your process.",
+  "Silence can be safety.",
+  "You can honour your limits without guilt.",
+  "Let go of 'should'. Stay with what is.",
+  "You're allowed to start over, even mid-sentence.",
+  "One wobble doesn't undo the work.",
+  "You don't have to be okay to be worthy.",
+  "You're allowed to care less sometimes.",
+  "Comfort is a valid goal.",
+  "You don't have to optimise everything.",
+  "You can be whole and still healing.",
+  "Your way of working is real work.",
+  "Needing support doesn't make you less capable.",
+  "You're not the sum of your bad days.",
+  "Slow does not mean stuck.",
+  "It's okay to protect your energy.",
+  "Quiet effort is still effort.",
+  "Your story is unfolding in its own time.",
+  "Attention drifts. You can bring it back.",
+  "Today can be gentler.",
+  "You can come back to it tomorrow.",
+  "You're allowed to write your own rules.",
+  "Some days need soft focus.",
+  "The checklist can wait. You can't.",
+  "You don't need to earn breaks.",
+  "Doing it messily is still doing it.",
+  "You can set boundaries even with yourself.",
+  "It's not always a productivity issue. Sometimes it's a capacity issue.",
+  "Step back. Breathe. Begin again.",
+  "Not knowing is a starting point, not a flaw.",
+  "Even if it's small, it matters.",
+  "You're allowed to change how you cope.",
+  "Mess is part of making.",
+  "It's okay to go slow on purpose.",
+  "Pausing is not quitting.",
+  "You are not the exception to kindness.",
+  "Notice what helps. Keep that close.",
+  "You are not lost. You're in process.",
+  "Some things take longer. That's okay.",
+  "You're allowed to stop explaining yourself.",
+  "Trying counts.",
+  "Small wins are still wins.",
+  "You can hold both effort and ease.",
+  "The way you do it is a valid way.",
+  "You don't have to be ready. You just have to begin.",
+  "Success can be soft and quiet.",
+  "Your attention is a resource. Use it kindly.",
+  "You don't owe anyone your mask.",
+  "Low energy days deserve compassion.",
+  "Your path is yours. Walk it how you need.",
+  "You're not broken. You're building.",
+  "One kind step at a time.",
+  "Not everything needs to be fixed. Some things just need space.",
+  "It's okay to want peace more than progress.",
+  "You're allowed to forget and remember again.",
+  "You're allowed to log off the world for a bit.",
+  "Some days it's enough to just show up.",
+  "Your effort is enough, even when it's invisible.",
+  "You're allowed to be proud of your persistence.",
+  "There is no right way to be yourself.",
+  "Celebrate the days you keep going.",
+  "You are still you, even when tired.",
+  "Softness is not weakness. It's wisdom.",
+  "Keep what works. Release what doesn't.",
+  "Ease is not the enemy of growth.",
+  "However you got through today, it was enough.",
 ];
 
 const QUOTE_DURATION = 15000; // 15 seconds per quote
 
+// Function to get a random quote that's different from the current one
+const getRandomQuote = (currentIndex: number, totalQuotes: number): number => {
+  if (totalQuotes <= 1) return 0;
+  
+  let newIndex;
+  do {
+    newIndex = Math.floor(Math.random() * totalQuotes);
+  } while (newIndex === currentIndex);
+  
+  return newIndex;
+};
+
 export const MoodBoard: React.FC = () => {
-  const [currentQuote, setCurrentQuote] = useState(0);
+  const [currentQuote, setCurrentQuote] = useState(() => Math.floor(Math.random() * quotes.length));
   const [isExpanded, setIsExpanded] = useState(true);
   const [progress, setProgress] = useState(0);
 
@@ -104,7 +202,7 @@ export const MoodBoard: React.FC = () => {
     }, 100);
 
     const quoteInterval = setInterval(() => {
-      setCurrentQuote(prev => (prev + 1) % quotes.length);
+      setCurrentQuote(prev => getRandomQuote(prev, quotes.length));
       setProgress(0);
     }, QUOTE_DURATION);
 

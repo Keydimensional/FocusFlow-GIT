@@ -259,7 +259,7 @@ END:VCALENDAR`;
 
         <div className="bg-blue-50 p-3 rounded-lg">
           <p className="text-xs text-blue-700">
-            💡 Reminders will show as in-app popups with optional sound alerts. No browser notifications are used.
+            💡 <strong>Web App:</strong> Reminders will show as in-app popups with optional sound alerts while BrainBounce is open in your browser. Future native mobile apps will support background notifications!
           </p>
         </div>
       </div>

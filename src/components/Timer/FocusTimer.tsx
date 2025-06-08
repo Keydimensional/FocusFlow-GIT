@@ -256,7 +256,7 @@ export const FocusTimer: React.FC = () => {
       
       <div className="mt-4 bg-blue-50 p-3 rounded-lg">
         <p className="text-xs text-blue-700 text-center">
-          🔔 Timer alerts use in-app sounds and local notifications (native app only)
+          🔔 Timer alerts use in-app sounds and visual notifications while BrainBounce is open
         </p>
       </div>
     </div>

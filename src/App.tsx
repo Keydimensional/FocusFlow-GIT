@@ -10,23 +10,19 @@ import { AppProvider, useApp } from './context/AppContext';
 import { TutorialOverlay } from './components/Tutorial/TutorialOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
+import ReloadPromptBanner from './components/Auth/ReloadPromptBanner';
 
 const AppContent: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, showReloadPrompt, confirmReload } = useAuth();
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
 
-  // Check if new user needs username setup
   useEffect(() => {
     if (user && !loading) {
-      // Check if user has a display name
       if (!user.displayName || user.displayName.trim() === '') {
-        // Check if this is a new user (account created recently)
         const accountAge = Date.now() - new Date(user.metadata.creationTime || 0).getTime();
-        const isNewUser = accountAge < 5 * 60 * 1000; // 5 minutes
-        
-        // Also check if user has never set a username before
+        const isNewUser = accountAge < 5 * 60 * 1000;
         const hasSkippedUsername = localStorage.getItem(`username_skipped_${user.uid}`);
-        
+
         if (isNewUser || !hasSkippedUsername) {
           setShowUsernamePrompt(true);
         }
@@ -36,8 +32,6 @@ const AppContent: React.FC = () => {
 
   const handleUsernameComplete = () => {
     setShowUsernamePrompt(false);
-    
-    // Mark that username setup was completed/skipped for this user
     if (user) {
       localStorage.setItem(`username_skipped_${user.uid}`, 'true');
     }
@@ -54,9 +48,9 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // CRITICAL: If no user, show login/auth routes only - no redirects here
-  if (!user) {
-    return (
+ if (!user) {
+  return (
+    <>
       <Routes>
         <Route path="/finishSignIn" element={<FinishSignIn />} />
         <Route path="/signin" element={<Login />} />
@@ -64,47 +58,43 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<Login />} />
         <Route path="*" element={<Login />} />
       </Routes>
-    );
-  }
+      {showReloadPrompt && <ReloadPromptBanner onConfirm={confirmReload} />}
+    </>
+  );
+}
 
-  // User is authenticated, show main app
+
   return (
     <AppProvider>
-      <AppContentWithTutorial />
-      
-      {showUsernamePrompt && (
-        <UsernamePrompt onComplete={handleUsernameComplete} />
-      )}
+      <Layout>
+        <Dashboard />
+      </Layout>
+      <TutorialOverlayWrapper />
+      {showUsernamePrompt && <UsernamePrompt onComplete={handleUsernameComplete} />}
+      {showReloadPrompt && <ReloadPromptBanner onConfirm={confirmReload} />}
     </AppProvider>
   );
 };
 
-// Separate component to access AppContext
-const AppContentWithTutorial: React.FC = () => {
+const TutorialOverlayWrapper: React.FC = () => {
   const { showTutorial, setShowTutorial } = useApp();
-
   return (
-    <>
-      <Layout>
-        <Dashboard />
-      </Layout>
-      
-      {/* Tutorial Overlay - now properly connected to global state */}
-      <TutorialOverlay 
-        forceShow={showTutorial}
-        onComplete={() => {
-          console.log('🎓 Tutorial completed');
-          setShowTutorial(false);
-        }}
-      />
-    </>
+    <TutorialOverlay 
+      forceShow={showTutorial}
+      onComplete={() => setShowTutorial(false)}
+    />
   );
 };
 
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
         <AuthProvider>
           <AppContent />
         </AuthProvider>
