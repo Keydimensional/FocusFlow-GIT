@@ -10,9 +10,12 @@ export const DailyFocus: React.FC = () => {
   const [showGoalPrompt, setShowGoalPrompt] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Check if the focus is from today
+  // Check if the focus is from today - ONLY manually set focus counts
   const isFocusFromToday = () => {
-    if (!todaysFocus) return false;
+    if (!todaysFocus || !todaysFocus.text || todaysFocus.text.trim() === '') {
+      return false; // Empty focus doesn't count
+    }
+    
     const today = new Date();
     const focusDate = new Date(todaysFocus.timestamp);
     return (
@@ -26,7 +29,8 @@ export const DailyFocus: React.FC = () => {
   useEffect(() => {
     const checkDate = () => {
       if (todaysFocus && !isFocusFromToday()) {
-        addFocus(''); // Clear the focus
+        // Clear old focus from previous days
+        addFocus('');
       }
     };
 
@@ -61,14 +65,14 @@ export const DailyFocus: React.FC = () => {
   };
 
   const handleEdit = () => {
-    if (todaysFocus) {
+    if (todaysFocus && todaysFocus.text) {
       setText(todaysFocus.text);
       setIsEditing(true);
     }
   };
 
   const handleAddGoal = () => {
-    if (!todaysFocus) return;
+    if (!todaysFocus || !todaysFocus.text) return;
     
     addGoal({
       title: todaysFocus.text,
@@ -78,7 +82,7 @@ export const DailyFocus: React.FC = () => {
     setShowGoalPrompt(false);
   };
 
-  const validFocus = todaysFocus && isFocusFromToday();
+  const validFocus = todaysFocus && isFocusFromToday() && todaysFocus.text && todaysFocus.text.trim() !== '';
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">

@@ -18,12 +18,14 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (user && !loading) {
+      // Only show username prompt for users without a display name AND who are new users
       if (!user.displayName || user.displayName.trim() === '') {
         const accountAge = Date.now() - new Date(user.metadata.creationTime || 0).getTime();
-        const isNewUser = accountAge < 5 * 60 * 1000;
+        const isNewUser = accountAge < 5 * 60 * 1000; // 5 minutes
         const hasSkippedUsername = localStorage.getItem(`username_skipped_${user.uid}`);
 
-        if (isNewUser || !hasSkippedUsername) {
+        // Only show for genuinely new users who haven't skipped before
+        if (isNewUser && !hasSkippedUsername) {
           setShowUsernamePrompt(true);
         }
       }

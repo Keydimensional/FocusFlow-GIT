@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Flame, Trophy, Crown, Star, Zap, Target } from 'lucide-react';
+import { Flame, Trophy, Crown, Star, Zap, Target, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../Auth/AuthProvider';
+import { getUserStorageKey } from '../../utils/storage';
 
 const getStreakMilestone = (streak: number) => {
   if (streak >= 70) return { level: 'legendary', icon: Crown, color: 'text-purple-600', bg: 'bg-purple-100', title: 'Legendary Streak!', message: 'You\'re unstoppable! 🏆' };
@@ -21,13 +23,51 @@ const getNextMilestone = (streak: number) => {
 };
 
 export const StreakCounter: React.FC = () => {
-  const { streak } = useApp();
+  const { streak, lastCheckIn } = useApp();
+  const { user } = useAuth();
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastCelebratedStreak, setLastCelebratedStreak] = useState(0);
+  const [showEncouragement, setShowEncouragement] = useState(false);
+  const [hasShownEncouragementToday, setHasShownEncouragementToday] = useState(false);
   
   const milestone = getStreakMilestone(streak);
   const nextMilestone = getNextMilestone(streak);
   const IconComponent = milestone.icon;
+
+  // Check for missed days and show encouragement
+  useEffect(() => {
+    if (!user || !lastCheckIn || hasShownEncouragementToday) return;
+
+    const checkForMissedDays = () => {
+      const today = new Date();
+      const lastCheck = new Date(lastCheckIn.split('/').reverse().join('-'));
+      const daysDiff = Math.floor((today.getTime() - lastCheck.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // If user missed a day (gap of 2+ days), show encouragement
+      if (daysDiff >= 2) {
+        const encouragementKey = getUserStorageKey('encouragementShown', user.uid);
+        const lastEncouragementDate = localStorage.getItem(encouragementKey);
+        const todayString = today.toDateString();
+        
+        // Only show once per day
+        if (lastEncouragementDate !== todayString) {
+          console.log('💝 Showing encouragement for missed day');
+          setShowEncouragement(true);
+          localStorage.setItem(encouragementKey, todayString);
+          setHasShownEncouragementToday(true);
+          
+          // Auto-hide after 8 seconds
+          setTimeout(() => {
+            setShowEncouragement(false);
+          }, 8000);
+        }
+      }
+    };
+
+    // Check after a short delay
+    const timer = setTimeout(checkForMissedDays, 2000);
+    return () => clearTimeout(timer);
+  }, [user, lastCheckIn, hasShownEncouragementToday]);
 
   // Check for milestone achievements
   useEffect(() => {
@@ -87,6 +127,45 @@ export const StreakCounter: React.FC = () => {
               </motion.div>
               <h3 className="text-xl font-bold">{milestone.title}</h3>
               <p className="text-sm opacity-90">{milestone.message}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Encouragement Message for Missed Days */}
+      <AnimatePresence>
+        {showEncouragement && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute inset-0 bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100 flex items-center justify-center z-10 rounded-lg border-2 border-pink-200"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="text-center p-4"
+            >
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: 2, duration: 1 }}
+                className="text-4xl mb-3"
+              >
+                💝
+              </motion.div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Don't worry!</h3>
+              <p className="text-gray-700 text-sm mb-2">
+                What's important is that you're still here
+              </p>
+              <p className="text-gray-600 text-xs">
+                Every day is a fresh start ✨
+              </p>
+              <button
+                onClick={() => setShowEncouragement(false)}
+                className="mt-3 px-4 py-1.5 bg-purple-600 text-white text-xs rounded-full hover:bg-purple-700 transition-colors"
+              >
+                Thanks! 💜
+              </button>
             </motion.div>
           </motion.div>
         )}

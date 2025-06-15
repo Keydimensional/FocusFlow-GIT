@@ -36,14 +36,14 @@ export const HeroSection: React.FC = () => {
       
       <p className="text-xl text-gray-700 mb-8">
         Tired of productivity apps that treat you like a robot?
-        BrainBounce Flow is designed for ADHD minds; flexible, forgiving, and actually helpful.
+        BrainBounce Flow is designed for neurodiverse minds; flexible, forgiving, and actually helpful.
         No pressure. No shame. Just small wins, dopamine-friendly design, and structure that bends with you.
       </p>
 
       <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-6">
         <div className="space-y-2">
           <Brain className="w-8 h-8 text-purple-500 mx-auto" />
-          <h3 className="font-semibold text-gray-800">Built for Neurodivergence</h3>
+          <h3 className="font-semibold text-gray-800">Built for Neurodiversity</h3>
           <p className="text-gray-600">Works with your brain, not against it</p>
         </div>
 

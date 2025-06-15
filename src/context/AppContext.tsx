@@ -605,13 +605,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     addFocus: (text: string) => {
       try {
-        setState(prev => ({
-          ...prev,
-          todaysFocus: {
-            text,
-            timestamp: Date.now()
-          }
-        }));
+        // Only set focus if text is not empty
+        if (text.trim() === '') {
+          setState(prev => ({
+            ...prev,
+            todaysFocus: null
+          }));
+        } else {
+          setState(prev => ({
+            ...prev,
+            todaysFocus: {
+              text: text.trim(),
+              timestamp: Date.now()
+            }
+          }));
+        }
       } catch (error) {
         console.error('Error adding focus:', error);
         setDataLoadError('Failed to set focus. Please try again.');
@@ -624,7 +632,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...prev,
           todaysFocus: prev.todaysFocus ? {
             ...prev.todaysFocus,
-            text
+            text: text.trim()
           } : null
         }));
       } catch (error) {

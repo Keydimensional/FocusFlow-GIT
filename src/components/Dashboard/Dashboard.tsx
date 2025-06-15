@@ -38,7 +38,7 @@ export const Dashboard: React.FC = () => {
   const activeGoals = goals.filter(goal => !goal.completed);
   const activeReminders = reminders.filter(reminder => !reminder.completed);
 
-  // Check if user needs to set today's focus
+  // Check if user needs to set today's focus - DAILY for all users
   useEffect(() => {
     if (!user || hasCheckedFocusToday) return;
 
@@ -54,18 +54,22 @@ export const Dashboard: React.FC = () => {
         return;
       }
 
-      // Check if user has set focus for today
-      const hasTodaysFocus = todaysFocus && (() => {
-        const focusDate = new Date(todaysFocus.timestamp);
-        return (
-          today.getFullYear() === focusDate.getFullYear() &&
-          today.getMonth() === focusDate.getMonth() &&
-          today.getDate() === focusDate.getDate()
-        );
-      })();
+      // Check if user has MANUALLY set a valid focus for today
+      const hasTodaysFocus = todaysFocus && 
+        todaysFocus.text && 
+        todaysFocus.text.trim() !== '' && 
+        (() => {
+          const focusDate = new Date(todaysFocus.timestamp);
+          return (
+            today.getFullYear() === focusDate.getFullYear() &&
+            today.getMonth() === focusDate.getMonth() &&
+            today.getDate() === focusDate.getDate()
+          );
+        })();
 
       if (!hasTodaysFocus) {
-        // Show focus mode overlay
+        // Show focus mode overlay for daily prompt
+        console.log('🎯 Showing daily focus prompt - no valid focus set today');
         setShowFocusMode(true);
       }
 
@@ -150,7 +154,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Focus Mode Overlay */}
+      {/* Focus Mode Overlay - Now shows daily for all users */}
       <FocusModeOverlay
         isVisible={showFocusMode}
         onComplete={handleFocusModeComplete}

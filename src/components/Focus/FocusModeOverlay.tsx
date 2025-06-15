@@ -14,10 +14,21 @@ export const FocusModeOverlay: React.FC<FocusModeOverlayProps> = ({
   onComplete, 
   onSkip 
 }) => {
-  const { addFocus, addGoal } = useApp();
+  const { addFocus, addGoal, todaysFocus } = useApp();
   const [text, setText] = useState('');
   const [showGoalPrompt, setShowGoalPrompt] = useState(false);
   const [focusText, setFocusText] = useState('');
+
+  // Check if user already has focus for today
+  const hasTodaysFocus = todaysFocus && (() => {
+    const today = new Date();
+    const focusDate = new Date(todaysFocus.timestamp);
+    return (
+      today.getFullYear() === focusDate.getFullYear() &&
+      today.getMonth() === focusDate.getMonth() &&
+      today.getDate() === focusDate.getDate()
+    );
+  })();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +57,22 @@ export const FocusModeOverlay: React.FC<FocusModeOverlayProps> = ({
     onComplete();
   };
 
+  // Get appropriate greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning! 🌅';
+    if (hour < 17) return 'Good afternoon! ☀️';
+    return 'Good evening! 🌙';
+  };
+
+  // Get appropriate message based on whether user already has focus
+  const getMessage = () => {
+    if (hasTodaysFocus) {
+      return "Ready to set a new focus for today?";
+    }
+    return "Let's start your day with intention. What's your main focus for today?";
+  };
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -67,9 +94,9 @@ export const FocusModeOverlay: React.FC<FocusModeOverlayProps> = ({
                   <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Target className="w-8 h-8 text-purple-600" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Good morning! 🌅</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{getGreeting()}</h2>
                   <p className="text-gray-600">
-                    Let's start your day with intention. What's your main focus for today?
+                    {getMessage()}
                   </p>
                 </div>
 

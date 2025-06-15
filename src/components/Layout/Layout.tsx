@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { SettingsModal } from '../Settings/SettingsModal';
 import { HeroSection } from './HeroSection';
+import { SEOContent } from './SEOContent';
 import { ToastNotification } from './ToastNotification';
 import { useAuth } from '../Auth/AuthProvider';
 import { useApp } from '../../context/AppContext';
@@ -224,7 +225,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <HeroSection />
+        {/* Show SEO content only for unauthenticated users */}
+        {!user && <SEOContent />}
+        
+        {/* Show hero section for authenticated users */}
+        {user && <HeroSection />}
+        
         {children}
       </main>
 
