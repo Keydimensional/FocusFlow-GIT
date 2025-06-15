@@ -11,12 +11,14 @@ import {
   WifiOff,
   Clock,
   MessageSquare,
-  Smartphone
+  Smartphone,
+  Shield
 } from 'lucide-react';
 import { SettingsModal } from '../Settings/SettingsModal';
 import { HeroSection } from './HeroSection';
 import { SEOContent } from './SEOContent';
 import { ToastNotification } from './ToastNotification';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { useAuth } from '../Auth/AuthProvider';
 import { useApp } from '../../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +32,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [retryQueueSize, setRetryQueueSize] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showLocalReloadPrompt, setShowLocalReloadPrompt] = useState(false);
@@ -234,13 +237,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
 
-      <footer className="text-center text-sm text-gray-600 py-4 space-y-2">
+      <footer className="text-center text-sm text-gray-600 py-6 space-y-3 border-t border-gray-200 bg-white/50">
         <p>Optimised for your wellbeing</p>
         <div className="flex items-center justify-center gap-1 text-xs text-purple-600 bg-purple-50 rounded-full px-3 py-1 mx-auto w-fit">
           <Smartphone className="w-3 h-3" />
           <span>Pick up where you left off on any device</span>
         </div>
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-6 flex-wrap">
           <a
             href="https://forms.gle/jFwJcs5AgTe3vSsJ8"
             target="_blank"
@@ -250,6 +253,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <MessageSquare className="w-4 h-4" />
             Feature Request
           </a>
+          <button
+            onClick={() => setShowPrivacyPolicy(true)}
+            className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <Shield className="w-3 h-3" />
+            Privacy Policy
+          </button>
         </div>
       </footer>
 
@@ -264,6 +274,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       )}
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showPrivacyPolicy && <PrivacyPolicyModal onClose={() => setShowPrivacyPolicy(false)} />}
       
       {/* Reload Prompt Banner - Show if either local or auth state indicates it should be shown */}
       {shouldShowReloadPrompt && (
