@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { auth } from '../../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, ArrowRight, Lock, AlertCircle, User, ArrowLeft, CheckCircle, Brain, Heart, Target, ChevronDown } from 'lucide-react';
+import { Mail, ArrowRight, Lock, AlertCircle, User, ArrowLeft, CheckCircle, Brain, Heart, Target } from 'lucide-react';
 import { FeatureShowcase } from './FeatureShowcase';
 
 export const Login: React.FC = () => {
@@ -145,8 +145,41 @@ export const Login: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full border-4 border-purple-200"
+          className="relative bg-white rounded-xl shadow-2xl p-8 max-w-md w-full border-4 border-purple-200"
         >
+          {/* Flowing wave pulse effect on vertical edges */}
+          <motion.div
+            className="absolute left-0 top-8 bottom-8 w-1 bg-gradient-to-b from-transparent via-purple-400 to-transparent rounded-r-full"
+            animate={{ 
+              opacity: [0.2, 0.7, 0.2],
+              scaleY: [0.3, 1, 0.3],
+            }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 2.5,
+              ease: "easeInOut"
+            }}
+            style={{
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(147, 51, 234, 0.4) 20%, rgba(147, 51, 234, 0.8) 50%, rgba(147, 51, 234, 0.4) 80%, transparent 100%)'
+            }}
+          />
+          <motion.div
+            className="absolute right-0 top-8 bottom-8 w-1 bg-gradient-to-b from-transparent via-purple-400 to-transparent rounded-l-full"
+            animate={{ 
+              opacity: [0.2, 0.7, 0.2],
+              scaleY: [0.3, 1, 0.3],
+            }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 2.5,
+              ease: "easeInOut",
+              delay: 0.3
+            }}
+            style={{
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(147, 51, 234, 0.4) 20%, rgba(147, 51, 234, 0.8) 50%, rgba(147, 51, 234, 0.4) 80%, transparent 100%)'
+            }}
+          />
+          
           {/* Prominent Header */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -378,21 +411,21 @@ export const Login: React.FC = () => {
                   </button>
 
                   <div className="text-center">
-                    <p className="text-sm text-gray-600">
-                      {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSignUp(!isSignUp);
-                          setError(null);
-                          setUsername('');
-                        }}
-                        className="text-purple-600 hover:text-purple-700 font-medium underline"
-                        disabled={loading}
-                      >
-                        {isSignUp ? 'Sign In' : 'Sign Up'}
-                      </button>
+                    <p className="text-sm text-gray-600 mb-3">
+                      {isSignUp ? 'Already have an account?' : "Don't have an account?"}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignUp(!isSignUp);
+                        setError(null);
+                        setUsername('');
+                      }}
+                      className="w-full py-2 px-4 border-2 border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors font-semibold text-lg"
+                      disabled={loading}
+                    >
+                      {isSignUp ? 'Sign In Instead' : 'Create New Account'}
+                    </button>
                   </div>
                 </form>
               </motion.div>
@@ -401,52 +434,8 @@ export const Login: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Prominent Pulsating Arrow - Between Sections */}
-      <div className="relative -mt-32 mb-16 flex justify-center">
-        <motion.button
-          onClick={scrollToContent}
-          className="relative z-10 bg-white rounded-full p-6 shadow-2xl border-4 border-purple-200 hover:border-purple-300 transition-all duration-300 hover:shadow-3xl group"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 1.5, type: "spring", stiffness: 300 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          {/* Pulsing background effect */}
-          <motion.div
-            className="absolute inset-0 bg-purple-100 rounded-full"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ 
-              repeat: Infinity, 
-              duration: 2,
-              ease: "easeInOut"
-            }}
-          />
-          
-          {/* Main arrow with bounce animation */}
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ 
-              repeat: Infinity, 
-              duration: 2,
-              ease: "easeInOut"
-            }}
-            className="relative z-10"
-          >
-            <ChevronDown className="w-8 h-8 text-purple-600 group-hover:text-purple-700 transition-colors" />
-          </motion.div>
-          
-          {/* Tooltip */}
-          <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="bg-gray-800 text-white text-xs px-3 py-1 rounded-lg whitespace-nowrap">
-              Explore features below
-            </div>
-          </div>
-        </motion.button>
-      </div>
-
-      {/* Supporting Content Below */}
-      <div id="supporting-content" className="max-w-6xl mx-auto pb-8 space-y-6 px-4">
+      {/* Supporting Content Below - Safe spacing for all screen sizes */}
+      <div id="supporting-content" className="max-w-6xl mx-auto pb-8 space-y-6 px-4 mt-8 sm:mt-4 md:-mt-16 lg:-mt-24">
         {/* Interactive Feature Showcase */}
         <div className="opacity-90">
           <FeatureShowcase />
